@@ -11,7 +11,7 @@ wsl --install Ubuntu-22.04
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y wget curl git make cmake python3 python-is-python3 bzip2 xz-utils pkgconf build-essential libtool
 ```
-2. Install VitaSDK with all packages (SDL2, zlib, minizip and their dependencies) through vdpm:
+2. Install VitaSDK with all packages (SDL2 with vitaGL and their dependencies) through vdpm. zlib and minizip are downloaded by CMake and linked statically:
 ```bash
 git clone https://github.com/vitasdk/vdpm
 cd vdpm

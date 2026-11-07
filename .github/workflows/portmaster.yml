@@ -28,18 +28,23 @@ jobs:
       - name: Install cross compiler
         run: |
           sudo apt-get update
-          sudo apt-get install -y make python3 binfmt-support libarchive-tools qemu-user-static gcc-aarch64-linux-gnu g++-aarch64-linux-gnu wget
-      - name: Create arm64 Ubuntu 20.04 sysroot with SDL2
+          sudo apt-get install -y make python3 binfmt-support qemu-user-static gcc-aarch64-linux-gnu g++-aarch64-linux-gnu wget
+      # Ubuntu 20.04 arm64 sysroot with SDL2 2.32.0 built under qemu (about 10 minutes), cached.
+      - uses: actions/cache@v4
+        id: sysroot
+        with:
+          path: ~/sysroot-cache
+          key: portmaster-sysroot-${{ hashFiles('tools/make_portmaster_sysroot.sh') }}
+      - name: Create sysroot
+        if: steps.sysroot.outputs.cache-hit != 'true'
         run: |
-          cd ~
-          wget -q https://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-arm64-wsl.rootfs.tar.gz
-          mkdir arm64-sysroot
-          sudo bsdtar -xpf ubuntu-20.04-server-cloudimg-arm64-wsl.rootfs.tar.gz -C arm64-sysroot
-          sudo cp /usr/bin/qemu-aarch64-static arm64-sysroot/usr/bin
-          sudo cp /etc/resolv.conf arm64-sysroot/etc/resolv.conf
-          sudo mount -o bind /dev arm64-sysroot/dev
-          sudo chroot arm64-sysroot qemu-aarch64-static /bin/bash -c 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libsdl2-dev'
-          sudo umount arm64-sysroot/dev
+          sudo sh tools/make_portmaster_sysroot.sh "$HOME/arm64-sysroot"
+          mkdir -p ~/sysroot-cache
+          sudo tar -C "$HOME" -cf ~/sysroot-cache/arm64-sysroot.tar arm64-sysroot
+          sudo chown "$(id -u):$(id -g)" ~/sysroot-cache/arm64-sysroot.tar
+      - name: Restore sysroot
+        if: steps.sysroot.outputs.cache-hit == 'true'
+        run: sudo tar -C "$HOME" -xf ~/sysroot-cache/arm64-sysroot.tar
       - name: Build and package
         working-directory: cpp
         run: |

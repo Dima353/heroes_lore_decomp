@@ -33,7 +33,9 @@
       "toolchainFile": "$env{VITASDK}/share/vita.toolchain.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "HEROES_LORE_BUILD_SDL": "ON"
+        "HEROES_LORE_BUILD_SDL": "ON",
+        "HEROES_LORE_FETCH_DEPS": "ON",
+        "HEROES_LORE_FETCH_SDL": "OFF"
       }
     },
     {

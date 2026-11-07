@@ -38,7 +38,7 @@ elseif(HEROES_LORE_FETCH_DEPS)
     add_library(heroes_lore_minizip STATIC
         "${zlib_SOURCE_DIR}/contrib/minizip/unzip.c" "${zlib_SOURCE_DIR}/contrib/minizip/ioapi.c")
     target_link_libraries(heroes_lore_minizip PUBLIC zlibstatic)
-    if(PSP OR NINTENDO_3DS)
+    if(PSP OR NINTENDO_3DS OR VITA)
         target_compile_definitions(heroes_lore_minizip PRIVATE USE_FILE32API)
     endif()
     set(MINIZIP_INCLUDE_DIR "${zlib_SOURCE_DIR}/contrib")
@@ -278,8 +278,12 @@ if(HEROES_LORE_BUILD_SDL)
         set(VITA_TITLEID "HLWS00001" CACHE STRING "Nine-character title ID")
         set(VITA_VERSION "00.91") # XX.YY, follows PROJECT_VERSION
         target_compile_definitions(heroes_lore PRIVATE HEROES_LORE_VITA_BUILD=1)
-        # vitasdk ships minizip-ng: its static library also needs these (minizip.pc Libs.private, plus ppmd).
-        target_link_libraries(heroes_lore_map PRIVATE bz2 lzma zstd ppmd ssl crypto)
+        if(NOT HEROES_LORE_FETCH_DEPS)
+            # vitasdk's minizip-ng static library also needs these (minizip.pc Libs.private, plus ppmd).
+            # Newer vitasdk images build it against a different OpenSSL: the vita preset uses the
+            # fetched zlib/minizip instead.
+            target_link_libraries(heroes_lore_map PRIVATE bz2 lzma zstd ppmd ssl crypto)
+        endif()
         # libstdc++ reaches pthread through weak references, which never pull archive members.
         target_link_libraries(heroes_lore PRIVATE -Wl,--whole-archive pthread -Wl,--no-whole-archive)
         # This SDL2 is built with vitaGL, whose DMA copies and shader compiler need stubs that its
