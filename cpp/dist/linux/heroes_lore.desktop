@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Heroes Lore: Wind of Soltia
+Comment=Native port of the J2ME action RPG
+Exec=heroes_lore
+Icon=heroes_lore
+Categories=Game;RolePlaying;
+Terminal=false

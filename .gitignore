@@ -1,0 +1,31 @@
+# Build outputs
+cpp/build-*/
+/build/
+/builds/
+*.nro
+*.nacp
+*.elf
+*.vpk
+*.self
+*.3dsx
+*.smdh
+*.cia
+EBOOT.PBP
+*.o
+*.a
+*.zip
+*.tar.gz
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Game files and files generated from them are never committed
+*.jar
+*.sf2
+*.sf2.zlib
+
+# Local icons and LiveArea art
+cpp/assets/
+*.AppImage
+AppDir/

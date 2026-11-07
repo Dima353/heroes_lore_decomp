@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "name": "heroeslore.zip",
+  "items": [
+    "Heroes Lore Wind of Soltia.sh",
+    "heroeslore"
+  ],
+  "items_opt": [],
+  "attr": {
+    "title": "Heroes Lore Wind of Soltia",
+    "porter": [
+      "Heroes Lore Recomp"
+    ],
+    "desc": "Native C++ / SDL2 port of the J2ME action RPG, rebuilt from the original game data: three heroes, guardians, field combat, Russian language option and a modern menu style.",
+    "inst": "Copy the game's J2ME .jar into ports/heroeslore. Optional: a General MIDI SoundFont (.sf2) there for better music.",
+    "genres": [
+      "rpg"
+    ],
+    "image": null,
+    "rtr": false,
+    "exp": false,
+    "runtime": null,
+    "reqs": [],
+    "arch": [
+      "aarch64"
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+# PSPDEV snapshot verified on 2026-11-04. Includes CMake, SDL2 and the SDK.
+FROM pspdev/pspdev@sha256:ee385df3aa783189d5a033af5eb1d4a9cdd93718fb8bf652ec7bb48e54038a8b

@@ -1,0 +1,260 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+# CI builds carry no game data. The embedded SoundFont subset is generated from GeneralUser GS and
+# the note list in cpp/dist/soundfont (docs/build/soundfont.md). The 3DS .cia is built locally only
+# (docs/build/3ds-cia.md).
+
+permissions:
+  contents: read
+
+jobs:
+  soundfont:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg wget
+      - name: Download GeneralUser GS 2.0.3
+        run: |
+          wget -q -O GeneralUser-GS.sf2 https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/97049183643d5fc5a9322a69c5b09efb667c6c3a/GeneralUser-GS.sf2
+          echo "9575028c7a1f589f5770fccc8cff2734566af40cd26ed836944e9a5152688cfe  GeneralUser-GS.sf2" | sha256sum -c
+      - name: Build the subset
+        run: python3 tools/build_psp_soundfont.py --source GeneralUser-GS.sf2 --used cpp/dist/soundfont/used-notes.json --ffmpeg "$(command -v ffmpeg)" --output out/heroes_lore.sf2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soundfont
+          path: out/heroes_lore.sf2.zlib
+
+  tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Build and run regression tests
+        working-directory: cpp
+        run: |
+          cmake --preset inspect -DHEROES_LORE_BUILD_TESTS=ON -DHEROES_LORE_FETCH_DEPS=ON -DHEROES_LORE_FETCH_SDL=OFF
+          cmake --build build-inspect -j4
+          ctest --test-dir build-inspect --output-on-failure
+
+  windows:
+    needs: soundfont
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont
+          path: cpp/assets/psp
+      - name: Build
+        working-directory: cpp
+        run: |
+          cmake --preset windows
+          cmake --build --preset windows
+      - name: Package
+        working-directory: cpp/build-windows
+        run: cpack -C Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: cpp/build-windows/HeroesLore-*-win64.zip
+
+  linux:
+    needs: soundfont
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont
+          path: cpp/assets/psp
+      - name: Install tools and SDL2
+        run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config libsdl2-dev wget file
+      - name: Build
+        working-directory: cpp
+        run: |
+          cmake --preset linux
+          cmake --build --preset linux
+      - name: Package tar.gz
+        run: cd ~/heroeslore-linux && cpack
+      - name: Package AppImage
+        run: sh tools/package_appimage.sh
+      - name: Collect
+        run: |
+          mkdir -p out
+          cp ~/heroeslore-linux/HeroesLore-*-Linux.tar.gz ~/heroeslore-linux/HeroesLore-*-x86_64.AppImage out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out/*
+
+  switch:
+    needs: soundfont
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont
+          path: cpp/assets/psp
+      - name: Install tools and libraries
+        run: |
+          apt-get update && apt-get install -y cmake ninja-build
+          dkp-pacman -Sy --noconfirm --needed switch-dev switch-cmake switch-sdl2 switch-zlib
+      - name: Build
+        working-directory: cpp
+        env:
+          DEVKITPRO: /opt/devkitpro
+        run: |
+          cmake --preset switch-wsl
+          cmake --build --preset switch-wsl
+          mkdir -p ../out && cp "$HOME/heroeslore-build/heroes_lore.nro" ../out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switch
+          path: out/heroes_lore.nro
+
+  3ds:
+    needs: soundfont
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont
+          path: cpp/assets/psp
+      - name: Install tools and libraries
+        run: |
+          apt-get update && apt-get install -y cmake make python3
+          dkp-pacman -Sy --noconfirm --needed 3ds-dev 3ds-cmake 3ds-pkg-config citro2d
+      - name: Build
+        working-directory: cpp
+        env:
+          DEVKITPRO: /opt/devkitpro
+          DEVKITARM: /opt/devkitpro/devkitARM
+        run: |
+          cmake --preset 3ds
+          cmake --build --preset 3ds -j4
+          mkdir -p ../out && cp "$HOME/heroeslore-3ds/heroes_lore.3dsx" ../out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3ds
+          path: out/heroes_lore.3dsx
+
+  vita:
+    needs: soundfont
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont
+          path: cpp/assets/psp
+      # The VitaSDK image is Alpine based; JavaScript actions cannot run inside it, so the build runs
+      # through docker with the checkout mounted.
+      - name: Build
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src/cpp -e HOME=/tmp/home -e VITASDK=/usr/local/vitasdk vitasdk/vitasdk:latest sh -c '
+            set -e
+            export PATH="$VITASDK/bin:$PATH"
+            if command -v apk >/dev/null; then apk add --no-cache cmake make python3 bash; else apt-get update && apt-get install -y cmake make python3; fi
+            mkdir -p "$HOME"
+            cmake --preset vita
+            cmake --build --preset vita -j4
+            mkdir -p ../out && cp "$HOME/heroeslore-vita/heroes_lore.vpk" ../out/
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vita
+          path: out/heroes_lore.vpk
+
+  psp:
+    needs: soundfont
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont
+          path: cpp/assets/psp
+      - name: Build
+        run: |
+          docker build -t heroeslore-psp -f cpp/cmake/Dockerfile.psp cpp/cmake
+          docker run --rm -v "$PWD:/src" -w /src heroeslore-psp sh tools/build_psp_container.sh
+      - name: Collect
+        run: |
+          mkdir -p out
+          cd builds/psp && sudo zip -r ../../out/HeroesLore-psp.zip PSP README.txt SOUNDFONT-LICENSE.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: psp
+          path: out/HeroesLore-psp.zip
+
+  portmaster:
+    needs: soundfont
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont
+          path: cpp/assets/psp
+      - name: Install cross compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make python3 binfmt-support libarchive-tools qemu-user-static gcc-aarch64-linux-gnu g++-aarch64-linux-gnu wget
+      - name: Create arm64 Ubuntu 20.04 sysroot with SDL2
+        run: |
+          cd ~
+          wget -q https://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-arm64-wsl.rootfs.tar.gz
+          mkdir arm64-sysroot
+          sudo bsdtar -xpf ubuntu-20.04-server-cloudimg-arm64-wsl.rootfs.tar.gz -C arm64-sysroot
+          sudo cp /usr/bin/qemu-aarch64-static arm64-sysroot/usr/bin
+          sudo cp /etc/resolv.conf arm64-sysroot/etc/resolv.conf
+          sudo mount -o bind /dev arm64-sysroot/dev
+          sudo chroot arm64-sysroot qemu-aarch64-static /bin/bash -c 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libsdl2-dev'
+          sudo umount arm64-sysroot/dev
+      - name: Build and package
+        working-directory: cpp
+        run: |
+          export HEROES_LORE_SYSROOT=$HOME/arm64-sysroot
+          cmake --preset portmaster
+          cmake --build --preset portmaster -j4
+          mkdir -p ../out
+          python3 ../tools/package_portmaster.py ~/heroeslore-portmaster/heroes_lore ../out/heroeslore-portmaster.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portmaster
+          path: out/heroeslore-portmaster.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [soundfont, tests, windows, linux, switch, 3ds, vita, psp, portmaster]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
+            artifacts/*.AppImage
+            artifacts/*.nro
+            artifacts/*.3dsx
+            artifacts/*.vpk

@@ -1,0 +1,7 @@
+.section .rodata.heroes_lore_sf2,"a",%progbits
+.balign 16
+.global heroes_lore_sf2_start
+heroes_lore_sf2_start:
+.incbin "@HEROES_LORE_SOUNDFONT_ZLIB@"
+.global heroes_lore_sf2_end
+heroes_lore_sf2_end:

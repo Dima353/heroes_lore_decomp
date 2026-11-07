@@ -1,0 +1,128 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "switch",
+      "displayName": "Nintendo Switch (devkitPro)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-switch",
+      "toolchainFile": "$env{DEVKITPRO}/cmake/Switch.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HEROES_LORE_PORTLIBS": "$env{DEVKITPRO}/portlibs/switch",
+        "HEROES_LORE_BUILD_SDL": "ON"
+      }
+    },
+    {
+      "name": "switch-wsl",
+      "displayName": "Nintendo Switch (devkitPro, WSL)",
+      "generator": "Ninja",
+      "binaryDir": "$env{HOME}/heroeslore-build",
+      "toolchainFile": "$env{DEVKITPRO}/cmake/Switch.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HEROES_LORE_PORTLIBS": "$env{DEVKITPRO}/portlibs/switch",
+        "HEROES_LORE_BUILD_SDL": "ON"
+      }
+    },
+    {
+      "name": "vita",
+      "displayName": "PS Vita (VitaSDK, WSL)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "$env{HOME}/heroeslore-vita",
+      "toolchainFile": "$env{VITASDK}/share/vita.toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HEROES_LORE_BUILD_SDL": "ON"
+      }
+    },
+    {
+      "name": "3ds",
+      "displayName": "Nintendo 3DS (devkitARM, WSL; zlib, minizip and SDL2 built in)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "$env{HOME}/heroeslore-3ds",
+      "toolchainFile": "$env{DEVKITPRO}/cmake/3DS.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HEROES_LORE_3DS_GPU": "ON",
+        "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+        "HEROES_LORE_BUILD_SDL": "ON",
+        "HEROES_LORE_FETCH_DEPS": "ON"
+      }
+    },
+    {
+      "name": "portmaster",
+      "displayName": "PortMaster aarch64 (cross gcc + arm64 Ubuntu 20.04 sysroot in $HEROES_LORE_SYSROOT)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "$env{HOME}/heroeslore-portmaster",
+      "toolchainFile": "${sourceDir}/cmake/aarch64-portmaster.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HEROES_LORE_BUILD_SDL": "ON",
+        "HEROES_LORE_FETCH_DEPS": "ON",
+        "HEROES_LORE_FETCH_SDL": "OFF"
+      }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux x86_64 / Steam Deck (system SDL2; zlib and minizip built in)",
+      "generator": "Ninja",
+      "binaryDir": "$env{HOME}/heroeslore-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "HEROES_LORE_BUILD_SDL": "ON",
+        "HEROES_LORE_FETCH_DEPS": "ON",
+        "HEROES_LORE_FETCH_SDL": "OFF"
+      }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows (MSVC; zlib, minizip and SDL2 fetched and linked statically)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build-windows",
+      "cacheVariables": {
+        "HEROES_LORE_BUILD_SDL": "ON",
+        "HEROES_LORE_FETCH_DEPS": "ON"
+      }
+    },
+    {
+      "name": "inspect",
+      "displayName": "Host JAR inspector",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-inspect",
+      "cacheVariables": {
+        "HEROES_LORE_BUILD_SDL": "OFF",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "switch-wsl",
+      "configurePreset": "switch-wsl"
+    },
+    {
+      "name": "vita",
+      "configurePreset": "vita"
+    },
+    {
+      "name": "3ds",
+      "configurePreset": "3ds"
+    },
+    {
+      "name": "portmaster",
+      "configurePreset": "portmaster",
+      "targets": ["heroes_lore"]
+    },
+    {
+      "name": "linux",
+      "configurePreset": "linux"
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows",
+      "configuration": "Release"
+    }
+  ]
+}
