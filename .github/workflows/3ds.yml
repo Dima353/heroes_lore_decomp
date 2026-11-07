@@ -30,7 +30,9 @@ jobs:
       - name: Install tools and libraries
         run: |
           apt-get update && apt-get install -y cmake make python3
-          dkp-pacman -Sy --noconfirm --needed 3ds-dev 3ds-cmake 3ds-pkg-config citro2d
+          # The image already ships these; pkg.devkitpro.org often refuses CI requests (403), so
+          # sync only when something is missing.
+          dkp-pacman -Q libctru 3ds-cmake 3ds-pkg-config citro2d || dkp-pacman -Sy --noconfirm --needed 3ds-dev 3ds-cmake 3ds-pkg-config citro2d
       - name: Build
         working-directory: cpp
         env:

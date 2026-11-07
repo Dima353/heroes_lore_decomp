@@ -29,7 +29,9 @@ jobs:
       - name: Install tools and libraries
         run: |
           apt-get update && apt-get install -y cmake ninja-build
-          dkp-pacman -Sy --noconfirm --needed switch-dev switch-cmake switch-sdl2 switch-zlib
+          # The image already ships these; pkg.devkitpro.org often refuses CI requests (403), so
+          # sync only when something is missing.
+          dkp-pacman -Q libnx switch-cmake switch-sdl2 switch-zlib || dkp-pacman -Sy --noconfirm --needed switch-dev switch-cmake switch-sdl2 switch-zlib
       - name: Build
         working-directory: cpp
         env:
