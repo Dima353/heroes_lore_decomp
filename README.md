@@ -1,6 +1,6 @@
 # Heroes Lore: Wind of Soltia
 
-[![Build](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/build.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/build.yml)
+[![Tests](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/tests.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/tests.yml) [![Windows](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/windows.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/windows.yml) [![Linux](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/linux.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/linux.yml) [![Switch](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/switch.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/switch.yml) [![3DS](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/3ds.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/3ds.yml) [![Vita](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/vita.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/vita.yml) [![PSP](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/psp.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/psp.yml) [![PortMaster](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/portmaster.yml/badge.svg)](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/portmaster.yml)
 
 <p align="center"><img src="docs/screenshots/world.png" width="640"></p>
 
@@ -23,7 +23,7 @@ Supported platforms:
 ## Installation
 
 - You **must** own the original J2ME game. The port needs its `.jar`; the English release is preferred.
-- Build the port (see below), or download a package from [Releases](https://github.com/Dima353/heroes_lore_decomp/releases) or the latest [Actions](https://github.com/Dima353/heroes_lore_decomp/actions/workflows/build.yml) run.
+- Build the port (see below), or download a package from [Releases](https://github.com/Dima353/heroes_lore_decomp/releases) or the latest [Actions](https://github.com/Dima353/heroes_lore_decomp/actions) run of your platform.
 - Put the `.jar` where the platform expects it:
 
 | Platform | Folder |
@@ -43,10 +43,11 @@ Saves go to `%APPDATA%\HeroesLore` on Windows, `~/.local/share/HeroesLore` on Li
 ## Screenshots
 
 <p align="center">
-<img src="docs/screenshots/dialogue-left.png" width="400">
+<img src="docs/screenshots/dialogue-ru.png" width="400">
+<img src="docs/screenshots/inventory.png" width="400">
 <img src="docs/screenshots/shop.png" width="400">
-<img src="docs/screenshots/pause.png" width="400">
-<img src="docs/screenshots/inventory-1080.png" width="400">
+<img src="docs/screenshots/status.png" width="400">
+<img src="docs/screenshots/options.png" width="400">
 </p>
 
 ## Improvements

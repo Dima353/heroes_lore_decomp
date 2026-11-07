@@ -1,0 +1,44 @@
+name: PlayStation Vita
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  soundfont:
+    uses: ./.github/workflows/soundfont.yml
+    with:
+      artifact: soundfont-vita
+
+  build:
+    needs: soundfont
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont-vita
+          path: cpp/assets/psp
+      # The VitaSDK image is Alpine based; JavaScript actions cannot run inside it, so the build runs
+      # through docker with the checkout mounted.
+      - name: Build
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src/cpp -e HOME=/tmp/home -e VITASDK=/usr/local/vitasdk vitasdk/vitasdk:latest sh -c '
+            set -e
+            export PATH="$VITASDK/bin:$PATH"
+            if command -v apk >/dev/null; then apk add --no-cache cmake make python3 bash; else apt-get update && apt-get install -y cmake make python3; fi
+            mkdir -p "$HOME"
+            cmake --preset vita
+            cmake --build --preset vita -j4
+            mkdir -p ../out && cp "$HOME/heroeslore-vita/heroes_lore.vpk" ../out/
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vita
+          path: out/heroes_lore.vpk

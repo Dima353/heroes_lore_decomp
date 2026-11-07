@@ -1,0 +1,33 @@
+name: SoundFont
+
+# Embedded SoundFont subset from GeneralUser GS 2.0.3 and the note list in cpp/dist/soundfont
+# (docs/build/soundfont.md); no game files are used. Called by every platform build.
+
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Artifact name for heroes_lore.sf2.zlib
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  soundfont:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg wget
+      - name: Download GeneralUser GS 2.0.3
+        run: |
+          wget -q -O GeneralUser-GS.sf2 https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/97049183643d5fc5a9322a69c5b09efb667c6c3a/GeneralUser-GS.sf2
+          echo "9575028c7a1f589f5770fccc8cff2734566af40cd26ed836944e9a5152688cfe  GeneralUser-GS.sf2" | sha256sum -c
+      - name: Build the subset
+        run: python3 tools/build_psp_soundfont.py --source GeneralUser-GS.sf2 --used cpp/dist/soundfont/used-notes.json --ffmpeg "$(command -v ffmpeg)" --output out/heroes_lore.sf2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: out/heroes_lore.sf2.zlib

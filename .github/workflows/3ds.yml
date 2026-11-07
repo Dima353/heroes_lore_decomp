@@ -1,0 +1,46 @@
+name: Nintendo 3DS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  soundfont:
+    uses: ./.github/workflows/soundfont.yml
+    with:
+      artifact: soundfont-3ds
+
+  # The .cia is built locally only (docs/build/3ds-cia.md).
+  build:
+    needs: soundfont
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont-3ds
+          path: cpp/assets/psp
+      - name: Install tools and libraries
+        run: |
+          apt-get update && apt-get install -y cmake make python3
+          dkp-pacman -Sy --noconfirm --needed 3ds-dev 3ds-cmake 3ds-pkg-config citro2d
+      - name: Build
+        working-directory: cpp
+        env:
+          DEVKITPRO: /opt/devkitpro
+          DEVKITARM: /opt/devkitpro/devkitARM
+        run: |
+          cmake --preset 3ds
+          cmake --build --preset 3ds -j4
+          mkdir -p ../out && cp "$HOME/heroeslore-3ds/heroes_lore.3dsx" ../out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: n3ds
+          path: out/heroes_lore.3dsx

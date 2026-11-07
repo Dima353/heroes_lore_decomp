@@ -1,0 +1,54 @@
+name: PortMaster
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  soundfont:
+    uses: ./.github/workflows/soundfont.yml
+    with:
+      artifact: soundfont-portmaster
+
+  build:
+    needs: soundfont
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont-portmaster
+          path: cpp/assets/psp
+      - name: Install cross compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make python3 binfmt-support libarchive-tools qemu-user-static gcc-aarch64-linux-gnu g++-aarch64-linux-gnu wget
+      - name: Create arm64 Ubuntu 20.04 sysroot with SDL2
+        run: |
+          cd ~
+          wget -q https://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-arm64-wsl.rootfs.tar.gz
+          mkdir arm64-sysroot
+          sudo bsdtar -xpf ubuntu-20.04-server-cloudimg-arm64-wsl.rootfs.tar.gz -C arm64-sysroot
+          sudo cp /usr/bin/qemu-aarch64-static arm64-sysroot/usr/bin
+          sudo cp /etc/resolv.conf arm64-sysroot/etc/resolv.conf
+          sudo mount -o bind /dev arm64-sysroot/dev
+          sudo chroot arm64-sysroot qemu-aarch64-static /bin/bash -c 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y libsdl2-dev'
+          sudo umount arm64-sysroot/dev
+      - name: Build and package
+        working-directory: cpp
+        run: |
+          export HEROES_LORE_SYSROOT=$HOME/arm64-sysroot
+          cmake --preset portmaster
+          cmake --build --preset portmaster -j4
+          mkdir -p ../out
+          python3 ../tools/package_portmaster.py ~/heroeslore-portmaster/heroes_lore ../out/heroeslore-portmaster.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portmaster
+          path: out/heroeslore-portmaster.zip

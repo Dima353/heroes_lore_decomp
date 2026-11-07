@@ -1,0 +1,49 @@
+name: Release
+
+# A tag v* builds every platform and drafts a GitHub release with the packages.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+  windows:
+    uses: ./.github/workflows/windows.yml
+  linux:
+    uses: ./.github/workflows/linux.yml
+  switch:
+    uses: ./.github/workflows/switch.yml
+  n3ds:
+    uses: ./.github/workflows/3ds.yml
+  vita:
+    uses: ./.github/workflows/vita.yml
+  psp:
+    uses: ./.github/workflows/psp.yml
+  portmaster:
+    uses: ./.github/workflows/portmaster.yml
+
+  release:
+    needs: [tests, windows, linux, switch, n3ds, vita, psp, portmaster]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
+            artifacts/*.AppImage
+            artifacts/*.nro
+            artifacts/*.3dsx
+            artifacts/*.vpk

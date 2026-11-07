@@ -1,0 +1,46 @@
+name: Linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  soundfont:
+    uses: ./.github/workflows/soundfont.yml
+    with:
+      artifact: soundfont-linux
+
+  build:
+    needs: soundfont
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soundfont-linux
+          path: cpp/assets/psp
+      - name: Install tools and SDL2
+        run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config libsdl2-dev wget file
+      - name: Build
+        working-directory: cpp
+        run: |
+          cmake --preset linux
+          cmake --build --preset linux
+      - name: Package tar.gz
+        run: cd ~/heroeslore-linux && cpack
+      - name: Package AppImage
+        run: sh tools/package_appimage.sh
+      - name: Collect
+        run: |
+          mkdir -p out
+          cp ~/heroeslore-linux/HeroesLore-*-Linux.tar.gz ~/heroeslore-linux/HeroesLore-*-x86_64.AppImage out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out/*
