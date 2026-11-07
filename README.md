@@ -10,15 +10,15 @@ A decompilation-based native port of the J2ME action RPG Heroes Lore: Wind of So
 
 Supported platforms:
 
-| Platform | Package |
+| Platform | Release file |
 |--|--|
-| Windows x64 | `HeroesLore-<version>-win64.zip` |
-| Linux x64 and Steam Deck | `HeroesLore-<version>-x86_64.AppImage`, `HeroesLore-<version>-Linux.tar.gz` |
-| Nintendo Switch | `heroes_lore.nro` |
-| PlayStation Vita | `heroes_lore.vpk` |
-| PlayStation Portable | `EBOOT.PBP` |
-| Nintendo 3DS | `heroes_lore.3dsx` (`.cia`: build it yourself, [docs/build/3ds-cia.md](docs/build/3ds-cia.md)) |
-| PortMaster (ARM64 handhelds) | `heroeslore-portmaster.zip` |
+| Windows x64 | `HeroesLore-<version>-Windows-x64.zip` |
+| Linux x64 and Steam Deck | `HeroesLore-<version>-Linux-x86_64.AppImage`, `HeroesLore-<version>-Linux-x64.tar.gz` |
+| Nintendo Switch | `HeroesLore-<version>-Switch.zip` |
+| PlayStation Vita | `HeroesLore-<version>-PSVita.vpk` |
+| PlayStation Portable | `HeroesLore-<version>-PSP.zip` |
+| Nintendo 3DS | `HeroesLore-<version>-3DS.zip` (`.cia`: build it yourself, [docs/build/3ds-cia.md](docs/build/3ds-cia.md)) |
+| PortMaster (ARM64 handhelds) | `HeroesLore-<version>-PortMaster.zip` |
 
 ## Installation
 

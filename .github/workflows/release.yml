@@ -33,17 +33,38 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag against the project version
+        run: |
+          version=$(sed -n 's/^project(heroes_lore_port VERSION \([0-9.]*\).*/\1/p' cpp/CMakeLists.txt)
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, project $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+      # One file per platform, named HeroesLore-<version>-<platform>; console packages use the
+      # SD card layout, so they can be extracted to the card root.
+      - name: Package
+        run: |
+          v=$VERSION; a=artifacts; mkdir -p release stage
+          cp "$a/HeroesLore-$v-win64.zip" release/HeroesLore-$v-Windows-x64.zip
+          cp "$a/HeroesLore-$v-Linux.tar.gz" release/HeroesLore-$v-Linux-x64.tar.gz
+          cp "$a/HeroesLore-$v-x86_64.AppImage" release/HeroesLore-$v-Linux-x86_64.AppImage
+          cp "$a/heroes_lore.vpk" release/HeroesLore-$v-PSVita.vpk
+          cp "$a/HeroesLore-psp.zip" release/HeroesLore-$v-PSP.zip
+          cp "$a/heroeslore-portmaster.zip" release/HeroesLore-$v-PortMaster.zip
+          mkdir -p stage/switch/switch/heroeslore stage/3ds/3ds/heroeslore
+          cp "$a/heroes_lore.nro" stage/switch/switch/heroeslore/
+          cp "$a/heroes_lore.3dsx" stage/3ds/3ds/heroeslore/
+          for p in switch 3ds; do cp cpp/dist/SOUNDFONT-LICENSE.txt stage/$p/; done
+          (cd stage/switch && python3 -m zipfile -c ../../release/HeroesLore-$v-Switch.zip switch SOUNDFONT-LICENSE.txt)
+          (cd stage/3ds && python3 -m zipfile -c ../../release/HeroesLore-$v-3DS.zip 3ds SOUNDFONT-LICENSE.txt)
+          (cd release && sha256sum * > SHA256SUMS.txt)
+          ls -l release
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: |
-            artifacts/*.zip
-            artifacts/*.tar.gz
-            artifacts/*.AppImage
-            artifacts/*.nro
-            artifacts/*.3dsx
-            artifacts/*.vpk
+          name: Heroes Lore ${{ env.VERSION }}
+          body_path: .github/release-notes.md
+          files: release/*
