@@ -26,9 +26,11 @@ jobs:
     uses: ./.github/workflows/psp.yml
   portmaster:
     uses: ./.github/workflows/portmaster.yml
+  nds:
+    uses: ./.github/workflows/nds.yml
 
   release:
-    needs: [tests, windows, linux, switch, n3ds, vita, psp, portmaster]
+    needs: [tests, windows, linux, switch, n3ds, vita, psp, portmaster, nds]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -54,12 +56,14 @@ jobs:
           cp "$a/heroes_lore.vpk" release/HeroesLore-$v-PSVita.vpk
           cp "$a/HeroesLore-psp.zip" release/HeroesLore-$v-PSP.zip
           cp "$a/heroeslore-portmaster.zip" release/HeroesLore-$v-PortMaster.zip
-          mkdir -p stage/switch/switch/heroeslore stage/3ds/3ds/heroeslore
+          mkdir -p stage/switch/switch/heroeslore stage/3ds/3ds/heroeslore stage/nds/heroeslore
           cp "$a/heroes_lore.nro" stage/switch/switch/heroeslore/
           cp "$a/heroes_lore.3dsx" stage/3ds/3ds/heroeslore/
-          for p in switch 3ds; do cp cpp/dist/SOUNDFONT-LICENSE.txt stage/$p/; done
+          cp "$a/heroes_lore.nds" stage/nds/
+          for p in switch 3ds nds; do cp cpp/dist/SOUNDFONT-LICENSE.txt stage/$p/; done
           (cd stage/switch && python3 -m zipfile -c ../../release/HeroesLore-$v-Switch.zip switch SOUNDFONT-LICENSE.txt)
           (cd stage/3ds && python3 -m zipfile -c ../../release/HeroesLore-$v-3DS.zip 3ds SOUNDFONT-LICENSE.txt)
+          (cd stage/nds && python3 -m zipfile -c ../../release/HeroesLore-$v-NDS.zip heroes_lore.nds heroeslore SOUNDFONT-LICENSE.txt)
           (cd release && sha256sum * > SHA256SUMS.txt)
           ls -l release
       - uses: softprops/action-gh-release@v2

@@ -55,6 +55,17 @@ DialogueLayout calculate_dialogue_layout(int output_w, int output_h, int font_he
                     std::max(1,width-24*scale),font_height*layout.visible_lines*scale};
     return layout;
 }
+DialogueLayout calculate_bottom_dialogue_layout(int font_height, int portrait) {
+    if (font_height <= 0) throw std::invalid_argument("invalid dialogue font height");
+    DialogueLayout layout;
+    // Between the enemy bar (y 30) and the HP/SP row (y 152); a 50x60 face at the speaker's side.
+    layout.panel = {4,30,312,120};
+    layout.visible_lines = std::clamp((layout.panel.h-14)/font_height,1,8);
+    const int x = portrait > 0 ? layout.panel.x+61 : layout.panel.x+8;
+    const int w = portrait != 0 ? 243 : layout.panel.w-16;
+    layout.inner = {x,layout.panel.y+7,w,font_height*layout.visible_lines};
+    return layout;
+}
 
 std::size_t move_grid_selection(std::size_t selected,std::size_t count,int direction,std::size_t columns) {
     if(!count) return 0;

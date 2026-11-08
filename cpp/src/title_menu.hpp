@@ -86,7 +86,11 @@ struct TitleMenu {
     // Port Options tabs: Sound, Display, Interface, Game. On the options page selection 0 is the
     // tab strip and 1.. the tab's rows; option_ids holds the setting each row edits.
     static constexpr int option_tab_count=4;
+#ifdef HEROES_LORE_NDS_BUILD // DS: Sound tab adds Effects volume (id 10, handled by the DS front end)
+    static constexpr std::array<std::array<int,3>,option_tab_count> option_ids{{{0,5,10},{3,6,-1},{4,7,2},{1,8,9}}};
+#else
     static constexpr std::array<std::array<int,3>,option_tab_count> option_ids{{{0,5,-1},{3,6,-1},{4,7,2},{1,8,9}}};
+#endif
     int options_tab{};
     static int option_rows(int tab) {int n=0;for(int id:option_ids[std::size_t(tab)]) n+=id>=0;return n;}
     int option_id() const {return selection>0 && selection<=option_rows(options_tab)?option_ids[std::size_t(options_tab)][std::size_t(selection-1)]:-1;}

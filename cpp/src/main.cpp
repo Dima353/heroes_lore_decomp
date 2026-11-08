@@ -130,6 +130,11 @@ static void draw_3ds_bottom(SDL_Renderer* renderer,const VisualUiModel& ui,const
         enemy=ui.enemy_name;add(enemy,ui.enemy_level);add(enemy,ui.enemy_hp);add(enemy,ui.enemy_max_hp);add(enemy,ui.enemy_rank);
         auto& map=signature[1];
         map=ui.location_name;
+        if(ui.screen==VisualScreen::dialogue || ui.screen==VisualScreen::choice || ui.screen==VisualScreen::notice) {
+            map+='|';map+=ui.text; // the dialogue window replaces the minimap
+            add(map,int(ui.screen));add(map,ui.item_box);add(map,ui.portrait);add(map,ui.scroll_lines);
+            add(map,static_cast<long long>(std::min<std::size_t>(ui.dialogue_visible_end,1u<<30)));
+        }
         if(ui.bottom_minimap) {
             add(map,ui.bottom_minimap->width);add(map,ui.bottom_minimap->height); // the hero's cell is patched in place
             std::uint32_t hash=2166136261u;
@@ -155,7 +160,8 @@ static void draw_3ds_bottom(SDL_Renderer* renderer,const VisualUiModel& ui,const
     }
     static std::string last_mode,last[4];
     static int hero_x=-1,hero_y=-1;
-    const bool minimap=hud && !menu && ui.bottom_minimap;
+    const bool talking=ui.screen==VisualScreen::dialogue || ui.screen==VisualScreen::choice || ui.screen==VisualScreen::notice;
+    const bool minimap=hud && !menu && ui.bottom_minimap && !talking; // the dialogue window covers the minimap
     const int new_x=minimap?ui.bottom_minimap->hero_x:-1,new_y=minimap?ui.bottom_minimap->hero_y:-1;
     const auto paint_cell=[&](int x,int y,bool hero,SDL_Rect* cell) {
         if(!minimap || base.size()!=pixels.size() || !bottom_minimap_cell(*ui.bottom_minimap,x,y,cell)) return false;
@@ -419,9 +425,19 @@ static SDL_Texture* create_image_texture(SDL_Renderer* renderer, const DecodedIm
     return texture;
 }
 
+// The window dialogue pages are counted in: 3DS shows it on the bottom screen.
+static DialogueLayout shown_dialogue_layout(int output_w, int output_h, int font_height, int portrait) {
+#if HEROES_LORE_3DS
+    (void)output_w;(void)output_h;
+    return calculate_bottom_dialogue_layout(font_height,portrait);
+#else
+    return calculate_dialogue_layout(output_w,output_h,font_height,portrait);
+#endif
+}
+
 static int dialogue_line_count(const BitmapFont& font, const std::string& text,
                                int output_w, int output_h, int portrait = 0) {
-    const auto layout = calculate_dialogue_layout(output_w,output_h,font.height,portrait);
+    const auto layout = shown_dialogue_layout(output_w,output_h,font.height,portrait);
     const int line_height = static_cast<int>(font.height)*layout.scale;
     const auto glyphs = layout_bitmap_text(font,text,0,0,layout.inner.w,layout.scale);
     int last_line = 0;
@@ -885,6 +901,15 @@ static void render(SDL_Renderer* renderer, const GameMap& map, const EventGrid& 
     // system core that the audio thread keeps busy (once a frame, in the event loop, is enough).
     const auto phase=[&](int index){hidScanInput();SDL_JoystickUpdate();const Uint32 now=SDL_GetTicks();g_3ds_phase_ms[index]+=now-phase_mark;phase_mark=now;};
 #endif
+#if HEROES_LORE_3DS
+    // The title menus are drawn on the bottom screen; the top keeps the logo page with its feathers
+    // (Help / Options opened in game: the field).
+    const bool title_below=ui_model.screen==VisualScreen::title_menu && ui_model.startup.page!=TitlePage::splash &&
+        ui_model.startup.page!=TitlePage::logo && ui_model.startup.page!=TitlePage::loading;
+    const bool field_under_title=title_below && ui_model.startup.in_game;
+#else
+    constexpr bool field_under_title=false;
+#endif
     int output_w = 0, output_h = 0;
     SDL_GetRendererOutputSize(renderer, &output_w, &output_h);
     static bool logged_output_size = false;
@@ -923,7 +948,7 @@ static void render(SDL_Renderer* renderer, const GameMap& map, const EventGrid& 
             SDL_SetTextureColorMod(dialogue_font_texture, 255, 255, 255);
         }
     }
-    if(ui_model.screen!=VisualScreen::title_menu && ui_model.game_over_chars<0) {
+    if((ui_model.screen!=VisualScreen::title_menu || field_under_title) && ui_model.game_over_chars<0) {
     const auto viewport = ui_model.world_viewport.value_or(calculate_world_viewport(output_w,output_h,map.width,map.height,
                                                     hero.x_pixels,hero.y_pixels,
                                                     21*std::max(1,std::min(output_w/320,output_h/240))));
@@ -1508,6 +1533,12 @@ static void render(SDL_Renderer* renderer, const GameMap& map, const EventGrid& 
     [[maybe_unused]] const bool menu_screen=ui_model.screen==VisualScreen::game_menu || ui_model.screen==VisualScreen::shop ||
         (ui_model.screen==VisualScreen::service && ui_model.service);
 #if HEROES_LORE_3DS
+    if(title_below) {
+        VisualUiModel top=ui_model;
+        if(top.startup.in_game) {top.screen=VisualScreen::none;top.world_hidden=false;}
+        else {top.startup.page=TitlePage::logo;top.logo_prompt=false;} // the menu is open: no PRESS ANY KEY
+        draw_visual_ui(renderer,top,dialogue_textures,dialogue_font_texture,dialogue_font,output_w,output_h,hero_preview);
+    } else
     if(menu_screen && ui_model.game_over_chars<0) { // the menu opens on the bottom screen; the field stays on top
         VisualUiModel field=ui_model;field.screen=VisualScreen::none; // menu prompts and notices stay below
         field.confirming=false;field.notice.clear();field.modal_title.clear();field.modal_text.clear();
@@ -1572,7 +1603,7 @@ static void render(SDL_Renderer* renderer, const GameMap& map, const EventGrid& 
         const bool hud=ui_model.game_over_chars<0 && !ui_model.world_hidden && !menu_screen &&
             ui_model.screen!=VisualScreen::title_menu && ui_model.screen!=VisualScreen::ending;
         draw_3ds_bottom(renderer,ui_model,dialogue_textures,dialogue_font_texture,dialogue_font,hud,
-                        menu_screen && ui_model.game_over_chars<0,hero_preview);
+                        (menu_screen || title_below) && ui_model.game_over_chars<0,hero_preview);
 #ifdef HEROES_LORE_3DS_GPU
         hl3d::end_frame();
 #endif
@@ -1581,9 +1612,6 @@ static void render(SDL_Renderer* renderer, const GameMap& map, const EventGrid& 
 #endif
 }
 
-// fonts/big.mf: drop the outline palette entry and keep the fill. The Russian font swaps which
-// palette entry fills the glyphs, so the outline is taken as the more frequent of the two colours.
-static void prepare_heading_font(BitmapFont& font);
 static void prepare_dialogue_font(BitmapFont& font) {recolor_bitmap_font(font,0xffffff,0x000000);}
 // Russian pack: the JAR's English font plus the Russian glyphs under their real Cyrillic
 // codepoints, so Latin port strings and Russian text share one font.
@@ -1653,19 +1681,27 @@ static std::vector<std::string> load_text_bank(const GameArchive& archive) {
         for(const auto& fix:fixes) if(fix.id<bank.size() && bank[fix.id]==fix.original) bank[fix.id]=fix.fixed;
     return bank;
 }
-static void prepare_heading_font(BitmapFont& font) {
+// bh.d/bh.e: fonts/big.mf as it is, fill plus outline. The Russian release writes its headings
+// (3920.., help topics) in the big font's own layout (MOBAR ULPA = НОВАЯ ИГРА), so that font is
+// not merged with the Latin one. The fill is the rarer palette colour (the Russian font swaps them).
+// font.atlas gets white fill on black outline (bh.e), black_text the inverse (bh.d).
+static BitmapFont load_heading_font(GameArchive& archive,DecodedImage& black_text) {
+    BitmapFont font=load_bitmap_font(archive,"fonts/big.mf");
+    auto& rgba=font.atlas.rgba;
+    const auto rgb_at=[&](std::size_t p){return (std::uint32_t(rgba[p])<<16)|(std::uint32_t(rgba[p+1])<<8)|rgba[p+2];};
     if(font.has_shadow_palette) {
-        auto& rgba=font.atlas.rgba;
-        const auto rgb_at=[&](std::size_t p){return (std::uint32_t(rgba[p])<<16)|(std::uint32_t(rgba[p+1])<<8)|rgba[p+2];};
-        std::size_t text=0,shadow=0;
+        std::size_t fill=0,outline=0;
         for(std::size_t p=0;p+3<rgba.size();p+=4) {
             if(!rgba[p+3]) continue;
-            if(rgb_at(p)==font.text_palette_rgb) ++text; else if(rgb_at(p)==font.shadow_palette_rgb) ++shadow;
+            if(rgb_at(p)==font.text_palette_rgb) ++fill; else if(rgb_at(p)==font.shadow_palette_rgb) ++outline;
         }
-        if(text>shadow) std::swap(font.text_palette_rgb,font.shadow_palette_rgb);
-        for(std::size_t p=0;p+3<rgba.size();p+=4) if(rgb_at(p)==font.shadow_palette_rgb) rgba[p+3]=0;
+        if(fill>outline) std::swap(font.text_palette_rgb,font.shadow_palette_rgb);
     }
-    recolor_bitmap_font(font,0xffffff,0x000000); // white glyphs, tinted black or white when drawn
+    recolor_bitmap_font(font,0xffffff,0x000000);
+    black_text=font.atlas;
+    for(std::size_t p=0;p+3<black_text.rgba.size();p+=4)
+        if(black_text.rgba[p+3]) for(int k=0;k<3;++k) black_text.rgba[p+k]=std::uint8_t(255-black_text.rgba[p+k]);
+    return font;
 }
 // The game JAR in a folder: an English one first (the port's Russian comes from Options),
 // otherwise the first .jar by name; empty when there is none.
@@ -2107,9 +2143,12 @@ int main(int argc, char** argv) {
                 latin_font_texture=create_image_texture(renderer,latin_font.atlas);
             }
             dialogue_textures = load_sprite_textures(renderer,archive,"img/uifrm",{0,1,2,3,4,5,6,7,8});
-            // Original large glyphs; omit their shadow per the requested plain text.
-            startup_heading_font=load_text_font(archive,"fonts/big.mf",prepare_heading_font);
-            dialogue_textures.emplace(850,create_image_texture(renderer,startup_heading_font.atlas));
+            {
+                DecodedImage black_text;
+                startup_heading_font=load_heading_font(archive,black_text);
+                dialogue_textures.emplace(850,create_image_texture(renderer,startup_heading_font.atlas));
+                dialogue_textures.emplace(851,create_image_texture(renderer,black_text));
+            }
             const auto faces = load_sprite_atlas(archive,"m/face");
             std::unordered_set<std::size_t> face_ids;
             for (std::size_t i = 0; i < faces.frames.size(); ++i) face_ids.insert(i);
@@ -2381,8 +2420,12 @@ int main(int argc, char** argv) {
                 dialogue_font=load_text_font(archive,"fonts/small.mf",prepare_dialogue_font);
                 if(dialogue_font_texture) SDL_DestroyTexture(dialogue_font_texture);
                 dialogue_font_texture=create_image_texture(renderer,dialogue_font.atlas);
-                startup_heading_font=load_text_font(archive,"fonts/big.mf",prepare_heading_font);
-                replace_texture(dialogue_textures,850,create_image_texture(renderer,startup_heading_font.atlas));
+                {
+                    DecodedImage black_text;
+                    startup_heading_font=load_heading_font(archive,black_text);
+                    replace_texture(dialogue_textures,850,create_image_texture(renderer,startup_heading_font.atlas));
+                    replace_texture(dialogue_textures,851,create_image_texture(renderer,black_text));
+                }
                 for(int icon:{9,10,11,12,13,15}) {
                     const std::string path="fr-FR/_img_glb__"+std::to_string(icon)+".png";
                     if(archive.contains(path))
@@ -2909,8 +2952,8 @@ int main(int argc, char** argv) {
         const auto capture_save = [&]() {
             const auto hero=hero_input.state();
             if(event_runtime || hero.motion_mode!=1 || hero.partial_x || hero.partial_y)
-                throw std::runtime_error("Finish the current action before saving.");
-            if(!map_allows_save(current_map_id)) throw std::runtime_error("You cannot save during the boss stage.");
+                throw std::runtime_error(tr("Finish the current action before saving.","Сначала завершите текущее действие."));
+            if(!map_allows_save(current_map_id)) throw std::runtime_error(tr("You cannot save during the boss stage.","Во время боя с боссом сохраняться нельзя."));
             sync_derived_stats();
             SaveGame saved;
             saved.character_class=new_game.character_class;saved.map_id=current_map_id;saved.zone=std::stoi(current_zone);
@@ -3043,7 +3086,7 @@ int main(int argc, char** argv) {
         };
         const auto dialogue_page_range=[&]() {
             int w=0,h=0;SDL_GetRendererOutputSize(renderer,&w,&h);
-            const auto layout=calculate_dialogue_layout(w,h,dialogue_font.height,dialogue_portrait);
+            const auto layout=shown_dialogue_layout(w,h,dialogue_font.height,dialogue_portrait);
             const auto glyphs=layout_bitmap_text(dialogue_font,dialogue_text,0,0,layout.inner.w,layout.scale);
             std::size_t start=0,end=0;
             for(const auto& glyph:glyphs) {
@@ -3059,8 +3102,9 @@ int main(int argc, char** argv) {
                 dialogue_reveal.end=range.second;return;
             }
             int w=0,h=0;SDL_GetRendererOutputSize(renderer,&w,&h);
-            if(dialogue_line_count(dialogue_font,dialogue_text,w,h,dialogue_portrait)>dialogue_scroll_lines+4) {
-                dialogue_scroll_lines+=4;dialogue_reveal.reset();
+            const int page_lines=shown_dialogue_layout(w,h,dialogue_font.height,dialogue_portrait).visible_lines;
+            if(dialogue_line_count(dialogue_font,dialogue_text,w,h,dialogue_portrait)>dialogue_scroll_lines+page_lines) {
+                dialogue_scroll_lines+=page_lines;dialogue_reveal.reset();
             } else dialogue_advance_requested=true;
         };
         int camera_map=-1,camera_width=0,camera_height=0;std::string camera_zone;
@@ -3519,10 +3563,11 @@ int main(int argc, char** argv) {
                     quest_reading=screen=="quest-reading";
                 }
                 refresh_menu();
-            } else if(screen=="shop" || screen=="sale" || screen=="buy-confirm") {
+            } else if(screen=="shop" || screen=="sale" || screen=="buy-confirm" || screen=="sale-confirm") {
                 shop_active=screen_return_active=true;shop_catalog=load_shop_catalog(archive);
-                shop_selling=screen=="sale";shop_confirming=screen=="buy-confirm";
-                shop_quantity=screen=="buy-confirm"?3:1;shop_tab=screen=="buy-confirm"?0:1;shop_selection=2;refresh_shop();
+                shop_selling=screen=="sale" || screen=="sale-confirm";shop_confirming=screen=="buy-confirm" || screen=="sale-confirm";
+                shop_quantity=screen=="buy-confirm"?3:screen=="sale-confirm"?2:1;shop_tab=screen=="buy-confirm"?0:1;
+                shop_selection=screen=="sale-confirm"?3:2;refresh_shop();
             } else if(screen=="item-message") {
                 dialogue_active=item_message_box=true;dialogue_text=bank_or(3938,"Inventory is full.");
             } else if(screen=="choice") {
@@ -3725,6 +3770,32 @@ int main(int argc, char** argv) {
                         tap.type=SDL_CONTROLLERBUTTONUP;tap.cbutton.state=SDL_RELEASED;
                         SDL_PushEvent(&tap);
                     };
+                    if(title_menu.active) {
+                        // Title menus on the bottom screen: a tap picks a row (or slot), a tap on the
+                        // picked one confirms; Options rows change their value by the tapped half.
+                        const TitlePage page=title_menu.page;
+                        const bool below=page!=TitlePage::splash && page!=TitlePage::logo && page!=TitlePage::loading;
+                        const UiHit* hit=nullptr;
+                        if(below) for(const auto& h:visual_ui_hits())
+                            if((h.kind==12 || h.kind==13) && tx>=h.rect.x && tx<h.rect.x+h.rect.w && ty>=h.rect.y && ty<h.rect.y+h.rect.h) hit=&h;
+                        if(hit && hit->kind==13) {title_menu.yes=hit->index==0;press(SDL_CONTROLLER_BUTTON_A);}
+                        else if(hit && page==TitlePage::character && title_menu.locked_notice) press(SDL_CONTROLLER_BUTTON_A);
+                        else if(hit && hit->selected) {
+                            if(page==TitlePage::options) press(tx<160?SDL_CONTROLLER_BUTTON_DPAD_LEFT:SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+                            else press(SDL_CONTROLLER_BUTTON_A);
+                        } else if(hit) {
+                            if(page==TitlePage::load_game) title_menu.load_selection=hit->index;
+                            else if(page==TitlePage::character) title_menu.character_class=6+hit->index;
+                            else if(page==TitlePage::guardians) title_menu.guardian_focus=hit->index;
+                            else title_menu.selection=hit->index;
+                            title_menu.message.clear();
+                        }
+                        else if(ty>=216 && tx<110) press(SDL_CONTROLLER_BUTTON_A);  // the A hint
+                        else if(ty>=216 && tx>=210) press(SDL_CONTROLLER_BUTTON_B); // the B hint: back
+                        else if(page==TitlePage::logo || page==TitlePage::splash || page==TitlePage::reading ||
+                                page==TitlePage::guardian_intro || page==TitlePage::overwrite_warning) press(SDL_CONTROLLER_BUTTON_A);
+                        continue;
+                    }
                     const bool field=!title_menu.active && !ending && !menu_active && !shop_active && !service &&
                         !choice_active && !screen_return_active && !dialogue_active && !event_runtime &&
                         event_status_text.empty() && !minimap_open;
@@ -4173,6 +4244,16 @@ int main(int argc, char** argv) {
                 const int ms=std::max(1,std::min(w/240,h/220));
                 title_menu.logo.tick(w/ms,h/ms);last_logo_tick=HEROES_LORE_LOW_POWER?advance_logic_tick(last_logo_tick,now,title_menu.tick_ms()):now;
             }
+#if HEROES_LORE_3DS
+            // The logo page stays on the top screen while the menus are below: its feathers keep falling.
+            static Uint32 last_feather_tick=0;
+            if(title_menu.active && !title_menu.in_game && title_menu.page!=TitlePage::logo && title_menu.page!=TitlePage::splash &&
+               title_menu.page!=TitlePage::loading && now-last_feather_tick>=title_menu.tick_ms()) {
+                int w=0,h=0;SDL_GetRendererOutputSize(renderer,&w,&h);
+                const int ms=std::max(1,std::min(w/240,h/220));
+                title_menu.logo.tick(w/ms,h/ms);last_feather_tick=now;
+            }
+#endif
             if (ending && now - last_motion_tick >= title_menu.tick_ms()) {
                 int w=0,h=0;SDL_GetRendererOutputSize(renderer,&w,&h);
                 ending->tick(h/std::max(1,std::min(w/240,h/220)));

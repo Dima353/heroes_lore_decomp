@@ -37,6 +37,16 @@ int main() {
         const auto right=calculate_dialogue_layout(1280,720,10,-2);
         check(left.inner.w==right.inner.w && left.inner.w==plain.inner.w &&
               left.inner.x==right.inner.x, "portrait above panel preserves full text width");
+        for(const int face:{0,2,-2}) { // 3DS bottom screen: face inside the window, beside the text
+            const auto below=calculate_bottom_dialogue_layout(12,face);
+            check(below.panel.x>=0 && below.panel.x+below.panel.w<=320 && below.panel.y>=30 &&
+                  below.panel.y+below.panel.h<=152,"bottom dialogue fits between the enemy bar and the HP row");
+            check(below.inner.h==below.visible_lines*12 && below.inner.y+below.inner.h<=below.panel.y+below.panel.h-4,
+                  "bottom dialogue pages fit the window");
+            const int face_left=face>0?below.panel.x+5:below.panel.x+below.panel.w-55;
+            check(face==0 || below.inner.x>=face_left+50 || below.inner.x+below.inner.w<=face_left,
+                  "bottom dialogue text clears the face");
+        }
         check(move_grid_selection(0,6,2)==0,"down on a single row keeps the current slot");
         check(move_grid_selection(0,7,2)==6 && move_grid_selection(6,7,1)==0,"move between grid rows");
         check(move_grid_selection(0,6,3)==5 && move_grid_selection(5,6,4)==0,"horizontal wrap");

@@ -17,5 +17,7 @@ struct DialogueLayout {
     ViewRect panel, inner;
 };
 DialogueLayout calculate_dialogue_layout(int output_w, int output_h, int font_height, int portrait = 0);
+// 3DS: the dialogue window in the middle of the 320x240 bottom screen, the face inside it.
+DialogueLayout calculate_bottom_dialogue_layout(int font_height, int portrait = 0);
 
 std::size_t move_grid_selection(std::size_t selected,std::size_t count,int direction,std::size_t columns=6);

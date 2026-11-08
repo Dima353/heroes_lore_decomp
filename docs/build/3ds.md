@@ -48,7 +48,7 @@ See [3ds-cia.md](3ds-cia.md).
 2. Run Heroes Lore Wind of Soltia from the Homebrew Launcher.
 
 ### Notes
-- The game uses the top screen (400x240) with stereoscopic 3D. The bottom screen holds the minimap, the enemy panel, the HUD strip and the game menu.
-- Touch: the five bottom buttons (guardian skills, menu, quick item, next item), the HP/SP row (menu) and the minimap (full map). In menus a tap on a tab opens it, a tap on a row picks it and a second tap confirms; the bottom corners act as A and B; a tap advances dialogue.
+- The game uses the top screen (400x240) with stereoscopic 3D. The bottom screen holds the minimap, the enemy panel, the HUD strip, dialogue with the speaker's face, the game menu and the title menus; the top screen keeps the title logo while the title menus are open.
+- Touch: the five bottom buttons (guardian skills, menu, quick item, next item), the HP/SP row (menu) and the minimap (full map). In menus a tap on a tab opens it, a tap on a row picks it and a second tap confirms (in Options, a tap on the left or right half of the picked row changes its value); the bottom corners act as A and B; the buttons under the dialogue answer it.
 - Rendering goes through citro2d at 30 FPS. `-DHEROES_LORE_3DS_GPU=OFF` builds the SDL software renderer instead (no 3D).
 - Saves, settings and `heroes_lore.log`: `sdmc:/3ds/heroeslore/`, shared by the `.3dsx` and the `.cia`.

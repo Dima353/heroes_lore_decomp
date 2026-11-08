@@ -13,12 +13,18 @@
 #include <string>
 #include <utility>
 
+// Outside the unnamed namespace: inside it the names are mangled and never meet the bin2s symbols.
+#if HEROES_LORE_NDS
+// heroes_lore_jar.nds links the game JAR into the program (bin2s game_jar); it is read in place.
+extern "C" const std::uint8_t game_jar[] __attribute__((weak));
+extern "C" const std::uint32_t game_jar_size __attribute__((weak));
+#endif
 namespace {
-#if HEROES_LORE_3DS
-// The 3DS SD card is very slow on the many small reads and seeks minizip makes (each entry lookup
+#if HEROES_LORE_3DS || HEROES_LORE_NDS
+// The 3DS SD card (and a DS flash cart through DLDI) is very slow on the many small reads and seeks minizip makes (each entry lookup
 // walks the central directory): the JAR (under 1 MB) is read once and served from memory.
 using JarBytes = std::shared_ptr<const std::vector<std::uint8_t>>;
-struct MemoryJar { JarBytes data; ZPOS64_T position = 0; };
+struct MemoryJar { JarBytes keep; const std::uint8_t* bytes{}; ZPOS64_T size{}, position{}; };
 JarBytes jar_bytes(const std::string& path) {
     static std::mutex lock;
     static std::string cached_path;
@@ -28,7 +34,12 @@ JarBytes jar_bytes(const std::string& path) {
     std::FILE* file = std::fopen(path.c_str(), "rb");
     if (!file) return nullptr;
     std::vector<std::uint8_t> bytes;
-    std::vector<std::uint8_t> chunk(256u << 10);
+    if (std::fseek(file, 0, SEEK_END) == 0) { // exact size: no growth slack (the DS has 4 MB)
+        const long size = std::ftell(file);
+        if (size > 0) bytes.reserve(static_cast<std::size_t>(size));
+        std::fseek(file, 0, SEEK_SET);
+    }
+    std::vector<std::uint8_t> chunk(64u << 10);
     for (std::size_t count; (count = std::fread(chunk.data(), 1, chunk.size(), file)) > 0;)
         bytes.insert(bytes.end(), chunk.begin(), chunk.begin() + static_cast<std::ptrdiff_t>(count));
     std::fclose(file);
@@ -37,14 +48,21 @@ JarBytes jar_bytes(const std::string& path) {
     return cached;
 }
 voidpf ZCALLBACK memory_open(voidpf, const void* name, int) {
+#if HEROES_LORE_NDS
+    if (std::strcmp(static_cast<const char*>(name), "embedded:/Heroes_Lore.jar") == 0)
+        return &game_jar_size ? new MemoryJar{nullptr, game_jar, game_jar_size} : nullptr;
+#endif
     auto data = jar_bytes(static_cast<const char*>(name));
-    return data ? new MemoryJar{std::move(data)} : nullptr;
+    if (!data) return nullptr;
+    const auto* bytes = data->data();
+    const ZPOS64_T size = data->size();
+    return new MemoryJar{std::move(data), bytes, size};
 }
 uLong ZCALLBACK memory_read(voidpf, voidpf stream, void* buffer, uLong size) {
     auto* jar = static_cast<MemoryJar*>(stream);
-    const auto total = jar->data->size();
+    const auto total = jar->size;
     const auto count = static_cast<uLong>(jar->position >= total ? 0 : std::min<ZPOS64_T>(size, total - jar->position));
-    std::memcpy(buffer, jar->data->data() + jar->position, count);
+    std::memcpy(buffer, jar->bytes + jar->position, count);
     jar->position += count;
     return count;
 }
@@ -52,9 +70,9 @@ uLong ZCALLBACK memory_write(voidpf, voidpf, const void*, uLong) { return 0; }
 ZPOS64_T ZCALLBACK memory_tell(voidpf, voidpf stream) { return static_cast<MemoryJar*>(stream)->position; }
 long ZCALLBACK memory_seek(voidpf, voidpf stream, ZPOS64_T offset, int origin) {
     auto* jar = static_cast<MemoryJar*>(stream);
-    const ZPOS64_T base = origin == ZLIB_FILEFUNC_SEEK_SET ? 0 : origin == ZLIB_FILEFUNC_SEEK_CUR ? jar->position : jar->data->size();
+    const ZPOS64_T base = origin == ZLIB_FILEFUNC_SEEK_SET ? 0 : origin == ZLIB_FILEFUNC_SEEK_CUR ? jar->position : jar->size;
     const ZPOS64_T target = base + offset; // a negative offset wraps around, as minizip expects
-    if (target > jar->data->size()) return -1;
+    if (target > jar->size) return -1;
     jar->position = target;
     return 0;
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(heroes_lore_port VERSION 0.9.1 LANGUAGES C CXX) # C: the fetched zlib / minizip sources
+project(heroes_lore_port VERSION 0.9.2 LANGUAGES C CXX) # C: the fetched zlib / minizip sources
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

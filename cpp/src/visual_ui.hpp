@@ -127,6 +127,7 @@ struct VisualUiModel {
     bool world_hidden{},save_available{};
     bool hud_elsewhere{}; // 3DS: the HUD strip is drawn on the bottom screen, not over the field
     bool bottom_pass{};   // 3DS: this draw is the bottom screen (menus get its backdrop, no field capture)
+    bool logo_prompt{true}; // title logo page: PRESS ANY KEY (3DS: off while the menu is open below)
     unsigned bottom_layers{15}; // bottom screen parts: 1 backdrop, 2 minimap/plate, 4 HUD, 8 enemy panel
     int category{}, portrait{}, scroll_lines{}, detail_page{}, quantity{1};
     bool selling{}, confirming{}, choice_yes{true}, event_active{};

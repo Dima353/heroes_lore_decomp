@@ -1,0 +1,37 @@
+name: Nintendo DS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools and libraries
+        run: |
+          apt-get update && apt-get install -y make python3 wget
+          # pkg.devkitpro.org often refuses CI requests (403): sync only when something is missing.
+          dkp-pacman -Q libnds calico libfat-nds ndstool nds-zlib || dkp-pacman -Sy --noconfirm --needed nds-dev nds-zlib
+      # Instrument bank source (docs/build/nds.md); no game files are used.
+      - name: Download GeneralUser GS 2.0.3
+        run: |
+          wget -q -O GeneralUser-GS.sf2 https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/97049183643d5fc5a9322a69c5b09efb667c6c3a/GeneralUser-GS.sf2
+          echo "9575028c7a1f589f5770fccc8cff2734566af40cd26ed836944e9a5152688cfe  GeneralUser-GS.sf2" | sha256sum -c
+      - name: Build
+        env:
+          DEVKITPRO: /opt/devkitpro
+          DEVKITARM: /opt/devkitpro/devkitARM
+        run: HEROES_LORE_SF2="$PWD/GeneralUser-GS.sf2" sh tools/build_nds.sh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nds
+          path: out/heroes_lore.nds

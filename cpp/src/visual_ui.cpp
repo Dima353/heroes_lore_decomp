@@ -525,8 +525,34 @@ void draw_bottom_screen(SDL_Renderer* renderer,const VisualUiModel& model,const 
         const int w=text_width(font,text,1);p.text(text,{right-w,y,w+1,fh+1},c);};
     // Middle: minimap or the indoor plate, between the enemy bar (y 30) and the HP/SP row (y 152).
     constexpr int area_top=32,area_h=116;
+    const bool talking=model.screen==VisualScreen::dialogue || model.screen==VisualScreen::choice ||
+        model.screen==VisualScreen::notice;
     if(!(layers&2u)) {}
-    else if(model.bottom_minimap && model.bottom_minimap->width>0 && model.bottom_minimap->height>0) {
+    else if(talking) {
+        // The dialogue window (the top screen has none): face at the speaker's side (m/face, by the
+        // sign of the id), the page in gold; questions, item messages and notices centred in white.
+        const auto layout=calculate_bottom_dialogue_layout(fh,model.portrait);
+        const SDL_Rect box{layout.panel.x,layout.panel.y,layout.panel.w,layout.panel.h};
+        frame(p,box,{0,0,0,255});
+        if(model.portrait)
+            if(const auto face=textures.find(100+std::abs(model.portrait)-1);face!=textures.end()) {
+                const SDL_Rect dst{model.portrait>0?box.x+5:box.x+box.w-55,box.y+box.h-64,50,60};
+                SDL_RenderCopy(renderer,face->second,nullptr,&dst);
+            }
+        const SDL_Rect inner{layout.inner.x,layout.inner.y,layout.inner.w,layout.inner.h};
+        if(model.screen==VisualScreen::dialogue && !model.item_box) {
+            p.text(model.text,inner,gold,model.scroll_lines,model.dialogue_visible_end);
+            int lines=1;
+            for(const auto& g:layout_bitmap_text(font,model.text,0,0,inner.w,1)) lines=std::max(lines,g.y/fh+1);
+            if(lines>model.scroll_lines+layout.visible_lines) p.rect({box.x+box.w-12,box.y+box.h-10,5,3},gold);
+        } else {
+            int lines=1;
+            for(const auto& g:layout_bitmap_text(font,model.text,0,0,inner.w,1)) lines=std::max(lines,g.y/fh+1);
+            const int h=std::min(lines*fh,box.h-10);
+            p.text(model.text,{inner.x,box.y+(box.h-h)/2,inner.w,h+1},text_ink);
+        }
+    }
+    else if(model.bottom_minimap &&model.bottom_minimap->width>0 && model.bottom_minimap->height>0) {
         const auto& map=*model.bottom_minimap;
         int x0=0,y0=0,cell=1;bottom_minimap_layout(map,&x0,&y0,&cell);
         const int w=map.width*cell,h=map.height*cell;
@@ -608,17 +634,21 @@ void draw_bottom_screen(SDL_Renderer* renderer,const VisualUiModel& model,const 
             }
             key_label(slot==0?model.key_guardian_calm:model.key_guardian_wild,b);
         }
-        { // menu: three bars and the word, with a steady mark while attribute points wait (as.a STAT plate;
-          // not blinking here: each blink redrew the whole bottom screen, ~80 ms on Old 3DS)
+        { // menu: three bars and the word; while attribute points wait the original STAT plate
+          // (img/etcui 4, as.a over the HUD) takes the bars' place, steady as on the DS (a blink
+          // redrew the button row every few frames)
             const SDL_Rect b=bottom_button_rect(2);
             frame(p,b);
-            for(int k=0;k<3;++k) p.rect({b.x+19,b.y+11+k*5,20,2},text_ink);
+            const auto stat=model.progress.attribute_points>0?textures.find(0x51010):textures.end();
+            if(stat!=textures.end()) {
+                int iw=0,ih=0;SDL_QueryTexture(stat->second,nullptr,nullptr,&iw,&ih);
+                const int z=iw*2<=b.w-8 && ih*2<=20?2:1;
+                const SDL_Rect dst{b.x+(b.w-iw*z)/2,b.y+18-ih*z/2,iw*z,ih*z};
+                SDL_RenderCopy(renderer,stat->second,nullptr,&dst);
+            } else for(int k=0;k<3;++k) p.rect({b.x+19,b.y+11+k*5,20,2},text_ink);
             const std::string word=tr_text(model,"MENU","МЕНЮ");
             const int w=text_width(font,word,1);
             p.text(word,{b.x+(b.w-w)/2,b.y+30,w+1,fh+1},text_ink);
-            if(model.progress.attribute_points>0) {
-                p.rect({b.x+b.w-12,b.y+5,6,6},{255,200,60,255});p.rect({b.x+b.w-11,b.y+6,4,4},{255,240,150,255});
-            }
         }
         { // quick item with its count in a small framed box
             const SDL_Rect b=bottom_button_rect(3);
@@ -799,7 +829,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
                 SDL_RenderCopyEx(renderer,found->second,nullptr,&dst,0,nullptr,i?SDL_FLIP_HORIZONTAL:SDL_FLIP_NONE);
             }
             // bh.q (3950) in black at (r.i, r.h-45), visible two steps out of four.
-            if(menu.logo.prompt_visible()) {
+            if(model.logo_prompt && menu.logo.prompt_visible()) {
                 const std::string prompt=bank(3950,"PRESS ANY KEY");
                 int width=0;
                 for(const auto& glyph:layout_bitmap_text(font,prompt,0,0,300*ms,ms))
@@ -844,21 +874,17 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             row(11,r.y+(36+24*rows)*ms);
         };
         const auto label=[&](std::string text,int y,SDL_Color color=SDL_Color{0,0,0,255}) {
-            // The heading font has capitals only; bank strings are mixed case (Latin and UTF-8 Cyrillic).
-            for(std::size_t i=0;i<text.size();++i) {
-                auto& c=text[i];
-                if(c>='a' && c<='z') {c=char(c-'a'+'A');continue;}
-                if(i+1>=text.size()) continue;
-                auto& n=text[i+1];
-                const auto lead=static_cast<unsigned char>(c),next=static_cast<unsigned char>(n);
-                if(lead==0xD0 && next>=0xB0 && next<=0xBF) {n=char(next-0x20);++i;}            // а..п
-                else if(lead==0xD1 && next>=0x80 && next<=0x8F) {c=char(0xD0);n=char(next+0x20);++i;} // р..я
-                else if(lead==0xD1 && next==0x91) {c=char(0xD0);n=char(0x81);++i;}              // ё
-            }
-            const auto heading_texture=textures.find(850);
+            // The English heading font has capitals only. The Russian bank holds its headings in the
+            // Russian big.mf's own codes: decoded to Cyrillic on load, encoded back here.
+            if(model.localized) text=encode_russian_font_text(text);
+            else for(auto& c:text) if(c>='a' && c<='z') c=char(c-'a'+'A');
+            // bh.a(int): black text uses bh.d (white outline), white text bh.e (black outline).
+            const bool white_text=color.r>127;
+            const auto heading_texture=textures.find(white_text?850:851);
             const bool has_heading=model.startup_heading_font && heading_texture!=textures.end();
             const auto& heading_font=has_heading?*model.startup_heading_font:font;
             Painter heading{renderer,textures,has_heading?heading_texture->second:font_texture,heading_font,ms};
+            if(has_heading) color=SDL_Color{255,255,255,255}; // the atlas carries both colours
             int width=0;
             for(const auto& glyph:layout_bitmap_text(heading_font,text,0,0,300*ms,ms))
                 width=std::max(width,glyph.x+int(glyph.source_width)*ms);
@@ -896,8 +922,15 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             int iw=0,ih=0;SDL_QueryTexture(found->second,nullptr,nullptr,&iw,&ih);
             sprite(key,rx-iw*ms,by-ih*ms);
         };
+        // 3DS bottom screen: touch targets, kind 12 a row / slot (index as the page's selection),
+        // 13 YES (0) / NO (1).
+        const auto touch=[&](SDL_Rect r,int kind,int index,bool selected) {
+            if(model.bottom_pass) g_ui_hits.push_back({r,kind,index,selected,false});
+        };
         // YES/NO under the etc[17] brush (by/bk): highlighted word is white.
         const auto yes_no=[&](int ox,int oy,int yes_x,int no_x,int brush_x) {
+            touch({X(ox+yes_x)-6*ms,Y(oy+115),30*ms,17*ms},13,0,menu.yes);
+            touch({X(ox+no_x)-6*ms,Y(oy+115),30*ms,17*ms},13,1,!menu.yes);
             sprite(817,X(ox+brush_x+(menu.yes?0:28)),Y(oy+118));
             m.text(com(14,"YES"),{X(ox+yes_x),Y(oy+121),26*ms,10*ms},menu.yes?white:gold);
             m.text(com(15,"NO"),{X(ox+no_x),Y(oy+121),26*ms,10*ms},menu.yes?gold:white);
@@ -908,6 +941,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
                                          bank(3923,"Help"),bank(3924,"About"),bank(3926,"Exit")};
             for(int i=0;i<6;++i) {
                 const int ry=py+(26+i*16)*ms;
+                touch({mx,ry-3*ms,152*ms,16*ms},12,i,menu.selection==i);
                 const int brush=menu.brush_stage();
                 if(menu.selection==i) {
                     const int key=814+2*brush;
@@ -923,6 +957,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             }
         } else if(page==TitlePage::help) {
             // bt: topics in the large font (bh.a(true)), centred, 15px apart from p3+51; selection white.
+            for(int i=0;i<4;++i) touch({mx,Y(51+i*15)-3*ms,152*ms,15*ms},12,i,menu.selection==i);
             for(int i=0;i<4;++i)
                 label(help_topic(i),Y(51+i*15),menu.selection==i?SDL_Color{255,255,255,255}:SDL_Color{0,0,0,255});
         } else if(page==TitlePage::options) {
@@ -937,6 +972,9 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             const auto width_of=[&](const std::string& t){
                 int w=0;for(const auto& glyph:layout_bitmap_text(font,t,0,0,300*ms,ms)) w=std::max(w,glyph.x+int(glyph.source_width)*ms);
                 return w;};
+            touch({mx,Y(37),152*ms,20*ms},12,0,menu.selection==0);
+            for(int row=0;row<TitleMenu::option_rows(menu.options_tab);++row)
+                touch({mx,Y(62+20*row),152*ms,20*ms},12,row+1,menu.selection==row+1);
             {
                 const std::string& t=tabs[menu.options_tab];
                 const int w=width_of(t);
@@ -988,6 +1026,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             // c: grey faces at slots 6/34/59 (y+38), the selected slot in colour; two caption lines.
             const int selected=menu.character_class-6;
             static constexpr int slot_x[3]{6,34,59};
+            for(int slot=0;slot<3;++slot) touch({X(13+slot_x[slot]),Y(36),28*ms,72*ms},12,2-slot,slot==2-selected);
             for(int slot=0;slot<3;++slot) if(slot!=2-selected) sprite(710+(2-slot),X(15+slot_x[slot]),Y(10+38));
             sprite(700+selected,X(15+slot_x[2-selected]),Y(10+38));
             m.text(com(12,"CHARACTER"),{X(26),Y(114),120*ms,10*ms},gold);
@@ -1011,6 +1050,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             const int phase=int((SDL_GetTicks()/50)%6),bob=phase<=3?phase:6-phase;
             for(int i=0;i<3;++i) {
                 const int cx=X(ox+22+i*34);
+                if(!confirming) touch({cx-17*ms,Y(oy+28),34*ms,56*ms},12,i,menu.guardian_focus==i);
                 if(menu.chosen_guardians[i]) centred(721+i*2,cx,Y(oy+61));
                 else centred(720+i*2,cx,Y(oy+54+(!confirming && menu.guardian_focus==i?bob:0)));
             }
@@ -1033,6 +1073,8 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             };
             for(int i=0;i<5;++i) sprite(819,X(23),Y(54+i*16));
             sprite(814+2*menu.brush_stage(),X(15),Y(36+menu.load_selection*16));
+            for(std::size_t i=0;i<menu.saves.size() && i<5;++i)
+                touch({mx,Y(38+int(i)*16),152*ms,16*ms},12,int(i),int(i)==menu.load_selection);
             for(std::size_t i=0;i<menu.saves.size();++i) {
                 const int hero=menu.saves[i].hero-6;
                 std::string name=std::size_t(hero)<model.hero_text.size()?model.hero_text[std::size_t(hero)]:"?";
@@ -1158,6 +1200,9 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
         }
         return;
     }
+    // 3DS: dialogue, Yes/No, item messages and event notices go to the bottom screen (draw_bottom_screen).
+    if(model.hud_elsewhere && !model.bottom_pass && (model.screen==VisualScreen::dialogue ||
+       model.screen==VisualScreen::choice || model.screen==VisualScreen::notice)) return;
     if (model.screen==VisualScreen::dialogue && !model.item_box) {
         const auto layout=calculate_dialogue_layout(output_w,output_h,font.height,model.portrait);
         Painter d{renderer,textures,font_texture,font,layout.scale};
@@ -1280,7 +1325,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
         const auto plain=[&](const auto& draw){const int saved=split;split=1<<20;draw();split=saved;};
         // Port Modern layout: one MW x MH frame with a tab column, named lists and a detail panel.
         const bool modern=model.modern_ui && !shop && !service_ui;
-        const bool modern_shop=model.modern_ui && shop && !model.confirming;
+        const bool modern_shop=model.modern_ui && shop;
         const int MW=std::clamp(output_w/ms-16,240,420),MH=std::clamp(output_h/ms-28,176,220);
         const int frame_x=output_w/2-MW/2*ms,frame_y=std::max(0,output_h/2-(MH/2+11)*ms); // room for two hint lines below
         int cx=modern?frame_x:output_w/2-(77+ex/2)*ms,cy=modern?frame_y:output_h/2-85*ms;
@@ -1704,16 +1749,39 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             }
             modern_list(rows,int(model.selection),lx,list_top,lw,m_body-14,std::string());
             modern_panel(dx,m_top,dw,m_body);
-            modern_detail(dx,dw,33,14);
-            if(model.selection<model.items.size() && model.items[model.selection].type>=0) {
+            if(model.confirming && model.selection<model.items.size() && model.items[model.selection].type>=0) {
+                // ab in the detail panel: the item, the question, quantity arrows, total and balance.
                 const auto& item=model.items[model.selection];
-                item_detail(item);
-                // v: the better / worse marker of the selected goods, at the top right of the panel.
-                if(!model.selling && item.compare) plain([&]{image(item.compare>0?0x51007:0x51006,dx+dw-14,m_top+24,33);});
+                const int line=int(font.height)+2;
+                plain([&]{
+                    image(200+item.type,dx+14,m_top+14,3);
+                    say(item.name,dx+26,m_top+8,W,dw-30,line*2);
+                    const bool choose=model.selling?item.count>1:item.stackable;
+                    say(choose?st(model.selling?25:14):st(15),dx+6,m_top+36,W,dw-12,line*3);
+                    if(choose) {
+                        const int qy=m_top+80,qx=dx+dw/2;
+                        image(0x50002,qx-22,qy);digits(model.quantity,qx+4,qy,true);image(0x50003,qx+12,qy);
+                        g_ui_hits.push_back({{cx+(qx-32)*ms,cy+(qy-9)*ms,24*ms,24*ms},10,0,false,false});
+                        g_ui_hits.push_back({{cx+(qx+2)*ms,cy+(qy-9)*ms,24*ms,24*ms},10,1,false,false});
+                    }
+                    R(dx+4,m_top+98,dw-8,1,0x3f1f3f);
+                    say(model.selling?tr_text(model,"Receive","Получите"):tr_text(model,"Total","Итого"),dx+6,m_top+104,T,dw-12);
+                    money_at(std::int64_t(item.price)*model.quantity,dx+dw-6,m_top+118);
+                    say(st(13),dx+6,m_top+132,T,dw-12);
+                    money_at(model.gold,dx+dw-6,m_top+146);
+                });
+            } else {
+                modern_detail(dx,dw,33,14);
+                if(model.selection<model.items.size() && model.items[model.selection].type>=0) {
+                    const auto& item=model.items[model.selection];
+                    item_detail(item);
+                    // v: the better / worse marker of the selected goods, at the top right of the panel.
+                    if(!model.selling && item.compare) plain([&]{image(item.compare>0?0x51007:0x51006,dx+dw-14,m_top+24,33);});
+                }
+                // sgui/shop 8/9 "#BUY" / "#SELL" as the platform button at the foot of the panel.
+                draw_key_hints(m,latin,{frame_x+(dx+6)*ms,frame_y+(m_top+m_body-14)*ms,(dw-12)*ms,10*ms},W,
+                    {{"Y",model.selling?bank_text(model,3914,"Buy"):bank_text(model,3912,"Sell")}});
             }
-            // sgui/shop 8/9 "#BUY" / "#SELL" as the platform button at the foot of the panel.
-            draw_key_hints(m,latin,{frame_x+(dx+6)*ms,frame_y+(m_top+m_body-14)*ms,(dw-12)*ms,10*ms},W,
-                {{"Y",model.selling?bank_text(model,3914,"Buy"):bank_text(model,3912,"Sell")}});
             modern_done=true;
         }
         if(service_ui || modern_done) {

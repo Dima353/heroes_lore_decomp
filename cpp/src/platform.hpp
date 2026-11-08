@@ -22,9 +22,14 @@
 #else
 #define HEROES_LORE_3DS 0
 #endif
+#if defined(HEROES_LORE_NDS_BUILD) // Nintendo DS front end (cpp/nds), core sources only
+#define HEROES_LORE_NDS 1
+#else
+#define HEROES_LORE_NDS 0
+#endif
 #define HEROES_LORE_CONSOLE (HEROES_LORE_SWITCH || HEROES_LORE_VITA || HEROES_LORE_PSP || HEROES_LORE_3DS)
 // Weak handhelds: 30 FPS render cap, 22050 Hz float synth, small voice pools, no external .sf2.
-#define HEROES_LORE_LOW_POWER (HEROES_LORE_PSP || HEROES_LORE_3DS)
+#define HEROES_LORE_LOW_POWER (HEROES_LORE_PSP || HEROES_LORE_3DS || HEROES_LORE_NDS)
 
 // Where a console keeps the JAR, saves, settings, the log and an optional .sf2.
 #if HEROES_LORE_SWITCH
