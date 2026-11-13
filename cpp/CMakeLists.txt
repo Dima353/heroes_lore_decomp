@@ -276,7 +276,17 @@ if(HEROES_LORE_BUILD_SDL)
         include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
         set(VITA_APP_NAME "Heroes Lore Wind of Soltia" CACHE STRING "LiveArea title" FORCE)
         set(VITA_TITLEID "HLWS00001" CACHE STRING "Nine-character title ID")
-        set(VITA_VERSION "00.91") # XX.YY, follows PROJECT_VERSION
+        # XX.YY from PROJECT_VERSION: 0.9.2 -> 00.92 (minor and patch share the YY digits).
+        math(EXPR heroes_lore_vita_yy "${PROJECT_VERSION_MINOR}*10+${PROJECT_VERSION_PATCH}")
+        string(LENGTH "${PROJECT_VERSION_MAJOR}" heroes_lore_len)
+        set(heroes_lore_xx "${PROJECT_VERSION_MAJOR}")
+        if(heroes_lore_len LESS 2)
+            set(heroes_lore_xx "0${heroes_lore_xx}")
+        endif()
+        if(heroes_lore_vita_yy LESS 10)
+            set(heroes_lore_vita_yy "0${heroes_lore_vita_yy}")
+        endif()
+        set(VITA_VERSION "${heroes_lore_xx}.${heroes_lore_vita_yy}")
         target_compile_definitions(heroes_lore PRIVATE HEROES_LORE_VITA_BUILD=1)
         if(NOT HEROES_LORE_FETCH_DEPS)
             # vitasdk's minizip-ng static library also needs these (minizip.pc Libs.private, plus ppmd).

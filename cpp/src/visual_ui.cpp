@@ -518,7 +518,16 @@ void draw_bottom_screen(SDL_Renderer* renderer,const VisualUiModel& model,const 
     g_bottom_hits.clear();
     const unsigned layers=model.bottom_layers;
     if(layers&1u) draw_bottom_backdrop(renderer,textures,font_texture,font);
-    if(!hud) return;
+    if(!hud) {
+        // The logo page waits on the top screen: say a tap starts too (as on the DS).
+        if((layers&1u) && model.screen==VisualScreen::title_menu && model.startup.page==TitlePage::logo) {
+            const Painter p{renderer,textures,font_texture,font,1};
+            const std::string prompt=tr_text(model,"Touch or press any key","Коснитесь экрана или нажмите кнопку");
+            const int w=text_width(font,prompt,1);
+            p.text(prompt,{160-w/2,120-int(font.height)/2,w+1,int(font.height)+1},gold);
+        }
+        return;
+    }
     Painter p{renderer,textures,font_texture,font,1};
     const int fh=int(font.height);
     const auto right_text=[&](const std::string& text,int right,int y,SDL_Color c){

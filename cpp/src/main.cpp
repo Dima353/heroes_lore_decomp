@@ -124,7 +124,8 @@ static void draw_3ds_bottom(SDL_Renderer* renderer,const VisualUiModel& ui,const
     static constexpr SDL_Rect bands[4]{{0,0,320,30},{0,30,320,120},{0,150,320,30},{0,180,320,60}};
     std::string signature[4];
     const auto add=[](std::string& to,long long value){to+=',';to+=std::to_string(value);};
-    const std::string mode=menu?"menu":hud?"hud":"off";
+    const std::string mode=menu?"menu":hud?"hud":
+        ui.screen==VisualScreen::title_menu && ui.startup.page==TitlePage::logo?"logo":"off"; // logo: the touch prompt
     if(hud && !menu) {
         auto& enemy=signature[0];
         enemy=ui.enemy_name;add(enemy,ui.enemy_level);add(enemy,ui.enemy_hp);add(enemy,ui.enemy_max_hp);add(enemy,ui.enemy_rank);
@@ -3489,6 +3490,7 @@ int main(int argc, char** argv) {
             if(event_runtime || screen_return_active || menu_active || shop_active || service || choice_active ||
                dialogue_active || game_over_until || combat_world.hero_dying()) return;
             if(hero_input.state().motion_mode!=1 || map.kind>14) return;
+            if(HEROES_LORE_3DS) return; // the bottom screen shows the minimap all the time
             minimap_open=true;minimap_lit=false;minimap_tick=SDL_GetTicks();
         };
         const auto use_quick_item = [&]() {
@@ -3807,7 +3809,6 @@ int main(int argc, char** argv) {
                             if(tx>=r.x-2 && tx<r.x+r.w+2 && ty>=r.y-2) hit=i;}
                         if(hit>=0) press(buttons[hit]);
                         else if(ty>=148) press(SDL_CONTROLLER_BUTTON_START);              // HP/SP row: menu
-                        else press(SDL_CONTROLLER_BUTTON_BACK);                           // minimap: full map
                     } else if(minimap_open) press(SDL_CONTROLLER_BUTTON_A);
                     else if(!menu_active && !shop_active && !service && [&]{
                         // Dialogue, Yes/No and messages on the top screen: the buttons the bottom screen shows.
