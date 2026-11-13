@@ -3,10 +3,11 @@ Native port of the J2ME action RPG Heroes Lore: Wind of Soltia, rebuilt from the
 **The game is not included.** Every package needs your own copy of the original J2ME `.jar` (the English release is preferred). Russian is selected in Options.
 
 ### What's new
-- **Nintendo DS**: new platform with its own front end for the original DS (4 MB RAM) at 60 FPS. Boss arenas span both screens; HUD, dialogue and touch menus are on the bottom screen; music plays on the DS sound hardware.
-- **3DS**: dialogue, Yes/No questions and messages moved to the bottom screen with the speaker's face; the title menus are on the bottom screen with touch, the logo with falling feathers stays on top; the original STAT plate on the MENU button while attribute points wait.
-- Headings are drawn in the original large font with its outline; Russian headings no longer show hollow letters.
-- Modern menus: the trading post keeps its frame for the quantity and confirmation step.
+- **Modern menus**: the attribute point editor now uses the Modern frame: the four attributes with their values and pending points, the points left, a detail panel and -/+ buttons (touch on 3DS).
+- **Title menu**: small text on the paper is dark, the selected option dark red, as in the original.
+- **PS Vita**: the LiveArea version follows the release (0.9.2 builds showed 00.91).
+- **3DS**: the bottom screen asks to touch while the title logo waits; Select no longer opens the full map (the minimap is always on the bottom screen).
+- Internal: the front end code is split into modules; no change in behaviour.
 
 ### Downloads
 

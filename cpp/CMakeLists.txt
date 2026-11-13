@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(heroes_lore_port VERSION 0.9.2 LANGUAGES C CXX) # C: the fetched zlib / minizip sources
+project(heroes_lore_port VERSION 0.9.3 LANGUAGES C CXX) # C: the fetched zlib / minizip sources
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -83,7 +83,8 @@ if(HEROES_LORE_BUILD_SDL)
             find_package(SDL2 CONFIG REQUIRED)
         endif()
     endif()
-    add_executable(heroes_lore src/main.cpp src/visual_ui.cpp src/embedded_soundfont.cpp)
+    add_executable(heroes_lore src/main.cpp src/visual_ui.cpp src/embedded_soundfont.cpp src/startup_log.cpp
+        src/game_audio.cpp src/game_assets.cpp src/game_render.cpp src/game_text.cpp src/platform_3ds_screen.cpp)
     # Compressed minimal SoundFont (tools/build_psp_soundfont.py) built into the program: the music on
     # every platform unless an external .sf2 is found (desktop, Switch, Vita). Local file, not in git.
     set(HEROES_LORE_SOUNDFONT_ZLIB "${CMAKE_CURRENT_SOURCE_DIR}/assets/psp/heroes_lore.sf2.zlib" CACHE FILEPATH

@@ -913,6 +913,9 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
         // at p3+24 (main menu: body only). X/Y map original pixel offsets from (p2,p3).
         const auto X=[&](int o){return mx+o*ms;};
         const auto Y=[&](int o){return my+o*ms;};
+        // Port: small-font text on the paper in dark ink (gold was hard to read on the yellow paper);
+        // a selected row without a brush behind it is dark red instead of white.
+        constexpr SDL_Color paper_ink=ink,paper_pick{159,31,31,255};
         if(!main) {
             paper({mx,my,152*ms,24*ms});
             label(title,my+9*ms);
@@ -941,8 +944,8 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             touch({X(ox+yes_x)-6*ms,Y(oy+115),30*ms,17*ms},13,0,menu.yes);
             touch({X(ox+no_x)-6*ms,Y(oy+115),30*ms,17*ms},13,1,!menu.yes);
             sprite(817,X(ox+brush_x+(menu.yes?0:28)),Y(oy+118));
-            m.text(com(14,"YES"),{X(ox+yes_x),Y(oy+121),26*ms,10*ms},menu.yes?white:gold);
-            m.text(com(15,"NO"),{X(ox+no_x),Y(oy+121),26*ms,10*ms},menu.yes?gold:white);
+            m.text(com(14,"YES"),{X(ox+yes_x),Y(oy+121),26*ms,10*ms},menu.yes?white:paper_ink);
+            m.text(com(15,"NO"),{X(ox+no_x),Y(oy+121),26*ms,10*ms},menu.yes?paper_ink:white);
         };
         if(main) {
             // bf.a: items every 16px from body+26, brush (etc 14/16/18) behind the selection.
@@ -987,7 +990,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             {
                 const std::string& t=tabs[menu.options_tab];
                 const int w=width_of(t);
-                m.text(t,{X(76)-w/2,Y(41),w+ms,10*ms},menu.selection==0?white:gold);
+                m.text(t,{X(76)-w/2,Y(41),w+ms,10*ms},menu.selection==0?paper_pick:paper_ink);
                 sprite(0x50002,X(28),Y(41));sprite(0x50003,X(123),Y(41));
                 for(int i=0;i<TitleMenu::option_tab_count;++i) // page dots under the tab name
                     m.rect({X(76-(TitleMenu::option_tab_count*6)/2+i*6+1),Y(53),3*ms,3*ms},
@@ -997,7 +1000,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             for(int row=0;row<TitleMenu::option_rows(menu.options_tab);++row) {
                 const int i=TitleMenu::option_ids[std::size_t(menu.options_tab)][std::size_t(row)];
                 const int y=66+20*row;
-                m.text(names[i],{X(22),Y(y),42*ms,10*ms},menu.selection==row+1?white:gold);
+                m.text(names[i],{X(22),Y(y),42*ms,10*ms},menu.selection==row+1?paper_pick:paper_ink);
                 const std::string value=i==0?trim(menu.sound?bank(3944,"On"):bank(3945,"Off")):
                     i==1?com(60+menu.game_speed,speed_fallback[std::clamp(menu.game_speed,0,2)]):
                     i==2?trim(menu.instant_speech?bank(3942,"Fast"):bank(3943,"Normal")):
@@ -1010,7 +1013,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
                     i==8?trim(menu.autosave?bank(3944,"On"):bank(3945,"Off")):
                     trim(menu.rumble?bank(3944,"On"):bank(3945,"Off"));
                 const int value_w=width_of(value); // bh.a(..., 0): values are centred on p2+70
-                m.text(value,{X(97)-value_w/2,Y(y),value_w+ms,10*ms},gold);
+                m.text(value,{X(97)-value_w/2,Y(y),value_w+ms,10*ms},paper_ink);
                 sprite(0x50002,X(65),Y(y));sprite(0x50003,X(123),Y(y));
                 sprite(819,X(28),Y(y+12));
             }
@@ -1028,9 +1031,9 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             const int visible=std::max(1,104/int(font.height));
             const int pages=std::max(1,(lines+visible-1)/visible),current=menu.text_page%pages;
             m.text(std::to_string(current+1)+"/"+std::to_string(pages),{X(130),Y(34),24*ms,10*ms},ink);
-            m.text(text,{X(23),Y(45),text_w,visible*int(font.height)*ms},gold,current*visible);
-            if(current>0) m.text("^",{X(74),Y(36),12*ms,10*ms},white);
-            if(current+1<pages) m.text("v",{X(74),Y(156),12*ms,10*ms},white);
+            m.text(text,{X(23),Y(45),text_w,visible*int(font.height)*ms},paper_ink,current*visible);
+            if(current>0) m.text("^",{X(74),Y(36),12*ms,10*ms},paper_ink);
+            if(current+1<pages) m.text("v",{X(74),Y(156),12*ms,10*ms},paper_ink);
         } else if(page==TitlePage::character) {
             // c: grey faces at slots 6/34/59 (y+38), the selected slot in colour; two caption lines.
             const int selected=menu.character_class-6;
@@ -1038,16 +1041,16 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             for(int slot=0;slot<3;++slot) touch({X(13+slot_x[slot]),Y(36),28*ms,72*ms},12,2-slot,slot==2-selected);
             for(int slot=0;slot<3;++slot) if(slot!=2-selected) sprite(710+(2-slot),X(15+slot_x[slot]),Y(10+38));
             sprite(700+selected,X(15+slot_x[2-selected]),Y(10+38));
-            m.text(com(12,"CHARACTER"),{X(26),Y(114),120*ms,10*ms},gold);
-            m.text(com(13,"SELECTION."),{X(26),Y(129),120*ms,10*ms},gold);
+            m.text(com(12,"CHARACTER"),{X(26),Y(114),120*ms,10*ms},paper_ink);
+            m.text(com(13,"SELECTION."),{X(26),Y(129),120*ms,10*ms},paper_ink);
             if(menu.locked_notice) af_box(com(6,"Unlock this character")+"\n"+com(7,"after doing Ronin's story"));
         } else if(page==TitlePage::character_confirm) {
             // by: description, rule, name, colour face anchored bottom-right, YES/NO (No first).
             const int selected=menu.character_class-6;
             const auto label_text=[&](int index){return std::size_t(index)<model.hero_text.size()?model.hero_text[index]:"?";};
-            m.text(label_text(15+selected),{X(21),Y(39),133*ms,40*ms},gold);
+            m.text(label_text(15+selected),{X(21),Y(39),133*ms,40*ms},paper_ink);
             sprite(819,X(17),Y(85));
-            m.text(label_text(selected),{X(21),Y(89),120*ms,10*ms},gold);
+            m.text(label_text(selected),{X(21),Y(89),120*ms,10*ms},paper_ink);
             bottom_right(700+selected,X(135),Y(142));
             yes_no(10,5,9,37,5);
         } else if(page==TitlePage::guardians || page==TitlePage::guardian_confirm) {
@@ -1067,11 +1070,11 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
                 sprite(820,X(ox+19+menu.guardian_focus*34),Y(oy+73));
                 const int focus=menu.guardian_focus;
                 if(model.guardian_text.size()>=15) {
-                    m.text(model.guardian_text[focus],{X(ox+11),Y(oy+94),120*ms,10*ms},gold);
-                    m.text(model.guardian_text[12+focus],{X(ox+11),Y(oy+109),100*ms,25*ms},gold);
+                    m.text(model.guardian_text[focus],{X(ox+11),Y(oy+94),120*ms,10*ms},paper_ink);
+                    m.text(model.guardian_text[12+focus],{X(ox+11),Y(oy+109),100*ms,25*ms},paper_ink);
                 }
             } else {
-                m.text(com(17,"ARE YOU SURE?"),{X(ox+11),Y(oy+104),120*ms,10*ms},gold);
+                m.text(com(17,"ARE YOU SURE?"),{X(ox+11),Y(oy+104),120*ms,10*ms},paper_ink);
                 yes_no(ox,oy,64,92,60);
             }
         } else if(page==TitlePage::load_game) {
@@ -1111,7 +1114,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             std::string text=model.language && model.language->size()>3929?(*model.language)[3929]:
                 "Data will be overwritten.";
             std::replace(text.begin(),text.end(),';','\n');
-            m.text(text,{X(23),Y(45),110*ms,100*ms},gold);
+            m.text(text,{X(23),Y(45),110*ms,100*ms},paper_ink);
         }
         if(!menu.message.empty()) {
             const std::string& msg=menu.message;
@@ -1737,6 +1740,111 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
                     say_paged(sk(g.id*8+model.skill_selection*2+1),dx+6,m_top+36,T,dw-12,m_body-40);
                 });
                 modern_done=true;
+            } else if(tab==0 && model.attribute_editing) {
+                // bi with named rows: points left, the four attributes with -/+ and the sum (pending in gold),
+                // the chosen one described with what it changes. The 3DS bottom screen stacks the panel under
+                // finger-sized rows; hits keep the kinds of the touch editor (2 row, 3 -, 4 +, 5 confirm).
+                const bool touch=model.bottom_pass;
+                const int fh=int(font.height),remaining=attribute_points_remaining(model.progress,model.pending_attributes);
+                const int aw=touch?MW-lx-6:lw,head_h=touch?24:22,row_h=touch?24:20,bs=touch?22:14;
+                const int list_top=m_top+head_h+2,list_h=4*row_h+6;
+                const SDL_Color pending_c=C(0xffbf3f);
+                const bool placed=model.pending_attributes!=std::array<int,4>{};
+                plain([&]{
+                    bevel(lx,m_top,aw,head_h,0x3f1f3f,0x9f7f3f,0x3f3f3f,0x3f1f3f);
+                    g_ui_hits.push_back({{cx+lx*ms,cy+m_top*ms,aw*ms,head_h*ms},5,0,false,false});
+                    const std::string left=std::to_string(std::max(0,remaining));
+                    const int ty=m_top+(head_h-fh)/2+1,lw_=text_width(left);
+                    say(fit(clean(gm(36))+" "+clean(gm(37)),aw-24-lw_),lx+6,ty,T,aw-20-lw_);
+                    say(left,lx+aw-6-lw_,ty,remaining>0?W:T,lw_+2);
+                });
+                modern_panel(lx,list_top,aw,list_h);
+                plain([&]{
+                    for(int i=0;i<4;++i) {
+                        const int y=list_top+3+i*row_h,pending=model.pending_attributes[std::size_t(i)];
+                        const bool on=model.attribute_selection==i;
+                        const int value=model.progress.attributes[i]+model.progress.gear_bonus[i]+pending; // bi: base + gear + pending
+                        const int plus_x=lx+aw-6-bs,minus_x=plus_x-46-bs,bty=y+(row_h-1-bs)/2,ty=y+(row_h-1-fh)/2+1;
+                        if(on) rounded(lx+3,y,aw-6,row_h-1,0x3f1f3f);
+                        g_ui_hits.push_back({{cx+(lx+3)*ms,cy+y*ms,(minus_x-lx-6)*ms,(row_h-1)*ms},2,i,on,false});
+                        say(fit(hero_label(9+i),minus_x-lx-12),lx+8,ty,on?W:T,minus_x-lx-10);
+                        const auto button=[&](int x,bool plus,bool enabled) {
+                            bevel(x,bty,bs,bs,0x1f0f1f,0xdfbf7f,0x9f7f3f,0x3f1f3f);
+                            const unsigned glyph=enabled?0xffffff:0x7f5f5f;
+                            R(x+4,bty+bs/2-1,bs-8,2,glyph);
+                            if(plus) R(x+bs/2-1,bty+4,2,bs-8,glyph);
+                            g_ui_hits.push_back({{cx+(x-3)*ms,cy+y*ms,(bs+6)*ms,(row_h-1)*ms},plus?4:3,i,on,false});
+                        };
+                        button(minus_x,false,pending>0);
+                        const std::string v=std::to_string(value);
+                        say(v,minus_x+bs+24-text_width(v),ty,pending>0?pending_c:W,text_width(v)+2);
+                        if(pending>0) say("+"+std::to_string(pending),minus_x+bs+27,ty,pending_c,20);
+                        button(plus_x,true,remaining>0);
+                    }
+                    if(!touch) { // A confirms (the 3DS shows the same key as a touch button under the frame)
+                        const int y=list_top+list_h+3,h=20;
+                        bevel(lx,y,aw,h,0x3f1f3f,0x9f7f3f,0x3f3f3f,placed?0x3f1f3f:0x5f3f3f);
+                        g_ui_hits.push_back({{cx+lx*ms,cy+y*ms,aw*ms,h*ms},5,0,false,false});
+                        const std::string s=tr_text(model,"Save","Сохранить");
+                        const int cap=key_cap(latin,"A",0,0,10*ms,gold,false)/ms,x=lx+(aw-cap-4-text_width(s))/2;
+                        key_cap(latin,"A",cx+x*ms,cy+(y+5)*ms,10*ms,gold,true);
+                        say(s,x+cap+4,y+(h-fh)/2+1,placed?W:T,text_width(s)+2);
+                    }
+                });
+                // Detail: what the attribute does, then the values it changes, now and with the pending points.
+                const int px=touch?lx:dx,py=touch?list_top+list_h+2:m_top,pw=touch?aw:dw,ph=touch?m_top+m_body-py:m_body;
+                modern_panel(px,py,pw,ph);
+                plain([&]{
+                    const int i=std::clamp(model.attribute_selection,0,3);
+                    const int base=model.progress.attributes[i]+model.progress.gear_bonus[i];
+                    const int next=base+model.pending_attributes[std::size_t(i)],level=model.progress.level;
+                    static const char* const about_en[]{"Strength of blows: raises attack and defense.",
+                        "Raises maximum HP and how much HP returns over time.",
+                        "Dodging, hitting and critical blows.",
+                        "Raises maximum SP and how much SP returns over time; adds to critical blows."};
+                    static const char* const about_ru[]{"Сила ударов: повышает атаку и защиту.",
+                        "Повышает запас HP и его восстановление со временем.",
+                        "Уклонение, точность и критические удары.",
+                        "Повышает запас SP и его восстановление со временем, добавляет критические удары."};
+                    // ao.n / combat: attack (power*4/5), defense (power/5), max HP/SP ((n+level)*12),
+                    // regeneration (+n per tick), evasion and hit (+agility %), critical (agility/3 + will/10 %).
+                    std::vector<std::array<std::string,3>> stats;
+                    const auto stat=[&](const char* en,const char* ru,int now,int then,const char* unit) {
+                        stats.push_back({tr_text(model,en,ru),std::to_string(now)+unit,std::to_string(then)+unit});};
+                    if(i==0) {
+                        stat("Attack","Атака",model.attack,model.attack+next*4/5-base*4/5,"");
+                        stat("Defense","Защита",model.defense,model.defense+next/5-base/5,"");
+                    } else if(i==1 || i==3) {
+                        stat(i==1?"Max HP":"Max SP",i==1?"Макс. HP":"Макс. SP",(base+level)*12,(next+level)*12,"");
+                        stat(i==1?"HP regen":"SP regen",i==1?"Восст. HP":"Восст. SP",base,next,"");
+                        if(i==3) stat("Critical","Крит.",base/10,next/10,"%");
+                    } else {
+                        stat("Evade/hit","Уклон./точн.",base,next,"%");
+                        stat("Critical","Крит.",base/3,next/3,"%");
+                    }
+                    int y=py+5;
+                    if(!touch) {say(hero_label(9+i),px+6,y,W,pw-12);y+=fh+4;}
+                    const std::string about=model.localized?about_ru[i]:about_en[i];
+                    say(about,px+6,y,T,pw-12,line_count(clean(about),pw-12)*fh);
+                    y+=line_count(clean(about),pw-12)*fh+4;
+                    R(px+4,y-2,pw-8,1,0x3f1f3f);y+=2;
+                    // Two columns on the short 3DS panel, one elsewhere; a value that does not fit goes under its name.
+                    const int cols=touch?2:1,cw=(pw-12-(cols-1)*8)/cols;
+                    int row_h=0;
+                    for(int k=0;k<int(stats.size());++k) {
+                        const int x=px+6+(k%cols)*(cw+8);
+                        const auto& s=stats[std::size_t(k)];
+                        const bool changes=s[1]!=s[2];
+                        const std::string value=changes?s[1]+" -> "+s[2]:s[1];
+                        const int vw=text_width(value);
+                        say(fit(s[0],cw),x,y,T,cw);
+                        const bool below=text_width(clean(s[0]))+vw+6>cw;
+                        say(value,x+cw-vw,below?y+fh:y,changes?pending_c:W,vw+2);
+                        row_h=std::max(row_h,(below?2*fh:fh)+2);
+                        if(k%cols==cols-1 || k+1==int(stats.size())) {y+=row_h;row_h=0;}
+                    }
+                });
+                modern_done=true;
             } else {
                 // Status and Save keep their original layout, widened, right of the tab column.
                 cx=frame_x+(lx-2)*ms;cy=frame_y+(m_top-15+4)*ms;ex=std::max(0,MW-lx-6-155);split=100;
@@ -2058,6 +2166,7 @@ void draw_visual_ui(SDL_Renderer* renderer,const VisualUiModel& model,
             const bool keys_mode=model.skill_screen && tab==3;
             if(!model.bottom_pass) m.text(keys_mode?tr("Left/Right: key  Up/Down: skill","Влево/вправо - ключ, вверх/вниз - навык"):
                              !modern?tr("L/R, Left/Right: tabs  Up/Down: select","L/R, влево/вправо - вкладки, вверх/вниз - выбор"):
+                             tab==0 && model.attribute_editing?tr("Up/Down: attribute  Left/Right: points","вверх/вниз - атрибут, влево/вправо - очки"):
                              model.tab_focus?tr("Up/Down: tab  Right/A: list","вверх/вниз - вкладка, вправо/A - список"):
                              tr("Left: tabs  Up/Down: select","влево - вкладки, вверх/вниз - выбор"),
                    {std::max(2*ms,cx-20*ms),cy+178*ms,280*ms,10*ms},muted); // stays on a 640-wide screen
